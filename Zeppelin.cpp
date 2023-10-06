@@ -17,8 +17,12 @@
 #include "VECTOR3D.h"
 #include "QuadMesh.h"
 
-const int vWidth  = 650;    // Viewport width in pixels
-const int vHeight = 500;    // Viewport height in pixels
+const int vWidth = 1200;  // Viewport width in pixels
+const int vHeight = 1200; // Viewport height in pixels
+
+// Camera Position (Y and Z).
+const float cameraZ = 35.0;
+const float cameraY = 6.0;
 
 // Note how everything depends on robot body dimensions so that can scale entire robot proportionately
 // just by changing robot body scale
@@ -44,6 +48,21 @@ float robotAngle = 0.0;
 // Control arm rotation
 float shoulderAngle = -40.0;
 float gunAngle = -25.0;
+
+// Zeppelin Global Object Configs.
+float zeppelinBodyWidth = 15.0;
+float zeppelinBodyLength = 5.0;
+float zeppelinBodyDepth = 5.0;
+float commandCenterWidth = 0.5 * zeppelinBodyWidth;
+float commandCenterLength = 0.5 * zeppelinBodyLength;
+float commandCenterDepth = 0.85 * zeppelinBodyDepth;
+float topFinWidth = 0.2;
+float topFinLength = 0.5 * zeppelinBodyLength;
+float topFinDepth = 0.8 * zeppelinBodyDepth;
+
+// Zeppelin Rotation Angle around Y.
+float zeppelinAngle = 0.0;
+
 
 // Lighting/shading and material properties for robot - upcoming lecture - just copy for now
 // Robot RGBA material properties (NOTE: we will learn about this later in the semester)
@@ -108,6 +127,13 @@ void drawLowerBody();
 void drawLeftArm();
 void drawRightArm();
 
+void drawZeppelin();
+void drawZeppelinBody();
+void drawCommandCenter();
+void drawTopFin();
+void drawLeftFin();
+void drawRightFin();
+
 int main(int argc, char **argv)
 {
 	// Initialize GLUT
@@ -115,7 +141,7 @@ int main(int argc, char **argv)
 	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
 	glutInitWindowSize(vWidth, vHeight);
 	glutInitWindowPosition(200, 30);
-	glutCreateWindow("3D Hierarchical Example");
+	glutCreateWindow("Zeppelin");
 
 	// Initialize GL
 	initOpenGL(vWidth, vHeight);
@@ -190,15 +216,15 @@ void display(void)
 
 	glLoadIdentity();
 	// Create Viewing Matrix V
-	// Set up the camera at position (0, 6, 22) looking at the origin, up along positive y axis
-	gluLookAt(0.0, 6.0, 22.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
+	// Set up the camera at position (0, cameraY, cameraZ) looking at the origin, up along positive y axis
+	gluLookAt(0.0, cameraY, cameraZ, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
 
-	// Draw Robot
+	// Draw Zeppelin
 
 	// Apply modelling transformations M to move robot
 	// Current transformation matrix is set to IV, where I is identity matrix
 	// CTM = IV
-	drawRobot();
+	drawZeppelin();
 
 	// Draw ground
 	glPushMatrix();
@@ -207,6 +233,122 @@ void display(void)
 	glPopMatrix();
 
 	glutSwapBuffers();   // Double buffering, swap buffers
+}
+
+// Draw Full Zeppelin Model
+void drawZeppelin()
+{
+	// TODO: Implement Model Draw Function
+	glPushMatrix();
+	// Rotate the Zeppelin about its Y Axis.
+	glRotatef(zeppelinAngle, 0.0, 1.0, 0.0);
+	drawZeppelinBody();
+	drawCommandCenter();
+	drawTopFin();
+	drawLeftFin();
+	drawRightFin();
+	glPopMatrix();
+
+	glPopMatrix();
+}
+
+// Draw Zeppelin Body Object.
+void drawZeppelinBody()
+{
+	glMaterialfv(GL_FRONT, GL_AMBIENT, robotBody_mat_ambient);
+	glMaterialfv(GL_FRONT, GL_SPECULAR, robotBody_mat_specular);
+	glMaterialfv(GL_FRONT, GL_DIFFUSE, robotBody_mat_diffuse);
+	glMaterialfv(GL_FRONT, GL_SHININESS, robotBody_mat_shininess);
+
+	glPushMatrix();
+	glScalef(zeppelinBodyWidth, zeppelinBodyLength, zeppelinBodyDepth);
+	glutSolidSphere(1.0, 100, 100);
+	glPopMatrix();
+}
+
+// Draw Zeppelin Command Center.
+void drawCommandCenter() {
+	glMaterialfv(GL_FRONT, GL_AMBIENT, robotLowerBody_mat_ambient);
+	glMaterialfv(GL_FRONT, GL_SPECULAR, robotLowerBody_mat_specular);
+	glMaterialfv(GL_FRONT, GL_DIFFUSE, robotLowerBody_mat_diffuse);
+	glMaterialfv(GL_FRONT, GL_SHININESS, robotLowerBody_mat_shininess);
+
+	glPushMatrix();
+	// Position Command Center with Respect to Parent (body)
+	glTranslatef(0, commandCenterLength - 1.5 * zeppelinBodyLength, 0);
+
+	// Build Command Center.
+	glPushMatrix();
+		glScalef(commandCenterWidth, commandCenterLength, commandCenterDepth);
+		glutSolidCube(1.0);
+	glPopMatrix();
+	glPopMatrix();
+}
+
+// Draw Zeppelin Top Fin.
+void drawTopFin() {
+	glMaterialfv(GL_FRONT, GL_AMBIENT, robotArm_mat_ambient);
+	glMaterialfv(GL_FRONT, GL_SPECULAR, robotArm_mat_specular);
+	glMaterialfv(GL_FRONT, GL_DIFFUSE, robotArm_mat_diffuse);
+	glMaterialfv(GL_FRONT, GL_SHININESS, robotArm_mat_shininess);
+
+	glPushMatrix();
+	// Position Top Fin with Respect to Parent (body)
+	glTranslatef(topFinWidth + 0.65 * zeppelinBodyWidth, topFinLength + 0.10*zeppelinBodyLength, 0.0);
+
+	// Build the top fin.
+	glPushMatrix();
+		glRotatef(90.0, 0.0, 1.0, 0.0);
+		glRotatef(165.0, 1.0, 0.0, 0.0);
+		glScalef(topFinWidth, topFinLength, topFinDepth);
+		glutSolidCube(1.0);
+	glPopMatrix();
+	glPopMatrix();
+}
+
+// Draw Zeppelin Left Fin.
+void drawLeftFin() {
+	glMaterialfv(GL_FRONT, GL_AMBIENT, robotArm_mat_ambient);
+	glMaterialfv(GL_FRONT, GL_SPECULAR, robotArm_mat_specular);
+	glMaterialfv(GL_FRONT, GL_DIFFUSE, robotArm_mat_diffuse);
+	glMaterialfv(GL_FRONT, GL_SHININESS, robotArm_mat_shininess);
+
+	glPushMatrix();
+	// Position Top Fin with Respect to Parent (body)
+	glTranslatef(topFinWidth + 0.65 * zeppelinBodyWidth, 0.0, 0.5*topFinDepth + 0.5*zeppelinBodyDepth);
+
+	// Build the top fin.
+	glPushMatrix();
+		glRotatef(90.0, 0.0, 0.0, 1.0);
+		glRotatef(60.0, 1.0, 0.0, 0.0);
+		// TODO: Replace Fin Size Attribute values with corresponding left values
+		glScalef(topFinWidth, topFinLength, topFinDepth);
+		glutSolidCube(1.0);
+	glPopMatrix();
+	glPopMatrix();
+}
+
+// Draw Zeppelin Right Fin.
+void drawRightFin() {
+	glMaterialfv(GL_FRONT, GL_AMBIENT, robotArm_mat_ambient);
+	glMaterialfv(GL_FRONT, GL_SPECULAR, robotArm_mat_specular);
+	glMaterialfv(GL_FRONT, GL_DIFFUSE, robotArm_mat_diffuse);
+	glMaterialfv(GL_FRONT, GL_SHININESS, robotArm_mat_shininess);
+
+	glPushMatrix();
+	// Position Top Fin with Respect to Parent (body)
+	glTranslatef(topFinWidth + 0.65 * zeppelinBodyWidth, 0.0, -1.0*(0.5*topFinDepth + 0.5*zeppelinBodyDepth));
+
+	// Build the top fin.
+	glPushMatrix();
+		// TODO: Adjust Rotation of Fin
+		glRotatef(90.0, 0.0, 0.0, 1.0);
+		glRotatef(60.0, 1.0, 0.0, 0.0);
+		// TODO: Replace Fin Size Attribute values with corresponding left values
+		glScalef(topFinWidth, topFinLength, topFinDepth);
+		glutSolidCube(1.0);
+	glPopMatrix();
+	glPopMatrix();
 }
 
 void drawRobot()
@@ -370,13 +512,13 @@ void reshape(int w, int h)
 
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
-	gluPerspective(60.0, (GLdouble)w / h, 0.2, 40.0);
+	gluPerspective(60.0, (GLdouble)w / h, 0.2, 80.0);
 
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
 
-	// Set up the camera at position (0, 6, 22) looking at the origin, up along positive y axis
-	gluLookAt(0.0, 6.0, 22.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
+	// Set up the camera at position (0, cameraY, cameraZ) looking at the origin, up along positive y axis
+	gluLookAt(0.0, cameraY, cameraZ, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
 }
 
 bool stop = false;
@@ -390,10 +532,10 @@ void keyboard(unsigned char key, int x, int y)
 
 		break;
 	case 'r':
-		robotAngle += 2.0;
+		zeppelinAngle += 2.0;
 		break;
 	case 'R':
-		robotAngle -= 2.0;
+		zeppelinAngle -= 2.0;
 		break;
 	case 'a':
 		shoulderAngle += 2.0;
