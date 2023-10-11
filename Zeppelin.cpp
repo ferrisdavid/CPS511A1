@@ -22,7 +22,7 @@ const int vHeight = 1200; // Viewport height in pixels
 
 // Camera Position (Y and Z).
 const float cameraZ = 35.0;
-const float cameraY = 6.0;
+const float cameraY = 0.0;
 
 // Note how everything depends on robot body dimensions so that can scale entire robot proportionately
 // just by changing robot body scale
@@ -56,12 +56,29 @@ float zeppelinBodyDepth = 5.0;
 float commandCenterWidth = 0.5 * zeppelinBodyWidth;
 float commandCenterLength = 0.5 * zeppelinBodyLength;
 float commandCenterDepth = 0.85 * zeppelinBodyDepth;
-float topFinWidth = 0.2;
-float topFinLength = 0.5 * zeppelinBodyLength;
-float topFinDepth = 0.8 * zeppelinBodyDepth;
+float finWidth = 0.2;
+float finLength = 0.5 * zeppelinBodyLength;
+float finDepth = 0.8 * zeppelinBodyDepth;
+float driveShaftWidth = 0.125 * commandCenterWidth;
+float driveShaftLength = 0.075 * commandCenterLength;
+float driveShaftDepth = 0.075 * commandCenterDepth;
+float bladeWidth = 0.2 * driveShaftWidth;
+float bodyBladeLength = 8.0 * driveShaftLength;
+float commandBladeLength = 4.0 * driveShaftLength;
+float bladeDepth = 0.4 * driveShaftDepth;
+
+// Zeppelin Forward Direction vector.
+VECTOR3D forwardDirection = VECTOR3D(1.0, 0.0, 0.0);
+VECTOR3D zeppelinCenter = VECTOR3D();
 
 // Zeppelin Rotation Angle around Y.
 float zeppelinAngle = 0.0;
+
+// Zeppelin Height.
+float zeppelinHeight = 0.0;
+
+// Zeppelin Propeller blade angle.
+float bladeAngle = 0.0;
 
 
 // Lighting/shading and material properties for robot - upcoming lecture - just copy for now
@@ -133,6 +150,12 @@ void drawCommandCenter();
 void drawTopFin();
 void drawLeftFin();
 void drawRightFin();
+void drawPropeller();
+void drawBodyPropeller();
+void drawBlade(float initAngle, float bladeLength);
+
+void onRotate(float angleIncrement);
+void onMove();
 
 int main(int argc, char **argv)
 {
@@ -238,15 +261,22 @@ void display(void)
 // Draw Full Zeppelin Model
 void drawZeppelin()
 {
-	// TODO: Implement Model Draw Function
 	glPushMatrix();
-	// Rotate the Zeppelin about its Y Axis.
-	glRotatef(zeppelinAngle, 0.0, 1.0, 0.0);
-	drawZeppelinBody();
-	drawCommandCenter();
-	drawTopFin();
-	drawLeftFin();
-	drawRightFin();
+		// Translate Up/Down based on Zeppelin Height (Move Zeppelin up/down)
+		glTranslatef(0.0, zeppelinHeight, 0.0);
+		glTranslatef(zeppelinCenter.GetX(), 0.0, zeppelinCenter.GetZ());
+
+		// Rotate to Face Positive X-Axis (Since Model was built facing negative x originally).
+		glRotatef(180.0, 0.0, 1.0, 0.0);
+		// Rotate the Zeppelin about its Y Axis.
+		glRotatef(zeppelinAngle, 0.0, 1.0, 0.0);
+
+		drawZeppelinBody();
+		drawCommandCenter();
+		drawTopFin();
+		drawLeftFin();
+		drawRightFin();
+		drawBodyPropeller();
 	glPopMatrix();
 
 	glPopMatrix();
@@ -275,13 +305,16 @@ void drawCommandCenter() {
 
 	glPushMatrix();
 	// Position Command Center with Respect to Parent (body)
-	glTranslatef(0, commandCenterLength - 1.5 * zeppelinBodyLength, 0);
+	glTranslatef(0, -(0.95 * commandCenterLength + 0.5 * zeppelinBodyLength), 0);
 
 	// Build Command Center.
 	glPushMatrix();
 		glScalef(commandCenterWidth, commandCenterLength, commandCenterDepth);
 		glutSolidCube(1.0);
 	glPopMatrix();
+
+	// Draw Propeller (Child Object)
+	drawPropeller();
 	glPopMatrix();
 }
 
@@ -294,13 +327,14 @@ void drawTopFin() {
 
 	glPushMatrix();
 	// Position Top Fin with Respect to Parent (body)
-	glTranslatef(topFinWidth + 0.65 * zeppelinBodyWidth, topFinLength + 0.10*zeppelinBodyLength, 0.0);
+	glTranslatef(finWidth + 0.65 * zeppelinBodyWidth, finLength + 0.10*zeppelinBodyLength, 0.0);
 
 	// Build the top fin.
 	glPushMatrix();
 		glRotatef(90.0, 0.0, 1.0, 0.0);
 		glRotatef(165.0, 1.0, 0.0, 0.0);
-		glScalef(topFinWidth, topFinLength, topFinDepth);
+
+		glScalef(finWidth, finLength, finDepth);
 		glutSolidCube(1.0);
 	glPopMatrix();
 	glPopMatrix();
@@ -315,14 +349,14 @@ void drawLeftFin() {
 
 	glPushMatrix();
 	// Position Top Fin with Respect to Parent (body)
-	glTranslatef(topFinWidth + 0.65 * zeppelinBodyWidth, 0.0, 0.5*topFinDepth + 0.5*zeppelinBodyDepth);
+	glTranslatef(finWidth + 0.65 * zeppelinBodyWidth, 0.0, 0.45 * finDepth + 0.5 * zeppelinBodyDepth);
 
 	// Build the top fin.
 	glPushMatrix();
 		glRotatef(90.0, 0.0, 0.0, 1.0);
 		glRotatef(60.0, 1.0, 0.0, 0.0);
-		// TODO: Replace Fin Size Attribute values with corresponding left values
-		glScalef(topFinWidth, topFinLength, topFinDepth);
+
+		glScalef(finWidth, finLength, finDepth);
 		glutSolidCube(1.0);
 	glPopMatrix();
 	glPopMatrix();
@@ -337,17 +371,88 @@ void drawRightFin() {
 
 	glPushMatrix();
 	// Position Top Fin with Respect to Parent (body)
-	glTranslatef(topFinWidth + 0.65 * zeppelinBodyWidth, 0.0, -1.0*(0.5*topFinDepth + 0.5*zeppelinBodyDepth));
+	glTranslatef(finWidth + 0.65 * zeppelinBodyWidth, 0.0, -(0.45 * finDepth + 0.5 * zeppelinBodyDepth));
 
 	// Build the top fin.
 	glPushMatrix();
-		// TODO: Adjust Rotation of Fin
-		glRotatef(90.0, 0.0, 0.0, 1.0);
+		glRotatef(-90.0, 0.0, 0.0, 1.0);
 		glRotatef(60.0, 1.0, 0.0, 0.0);
-		// TODO: Replace Fin Size Attribute values with corresponding left values
-		glScalef(topFinWidth, topFinLength, topFinDepth);
+
+		glScalef(finWidth, finLength, finDepth);
 		glutSolidCube(1.0);
 	glPopMatrix();
+	glPopMatrix();
+}
+
+// Draw Zeppelin Command Center Propeller.
+void drawPropeller() {
+	glMaterialfv(GL_FRONT, GL_AMBIENT, robotArm_mat_ambient);
+	glMaterialfv(GL_FRONT, GL_SPECULAR, robotArm_mat_specular);
+	glMaterialfv(GL_FRONT, GL_DIFFUSE, robotArm_mat_diffuse);
+	glMaterialfv(GL_FRONT, GL_SHININESS, robotArm_mat_shininess);
+
+	// Drive Shaft.
+	glPushMatrix();
+		// Position Drive Shaft Relative to Parent (Command Center)
+		glTranslatef((0.5*driveShaftWidth + 0.5*commandCenterWidth), -0.25 * commandCenterLength, 0.0);
+
+		// Build Drive Shaft.
+		glPushMatrix();
+			glScalef(driveShaftWidth, driveShaftLength, driveShaftDepth);
+			glutSolidCube(1.0);
+		glPopMatrix();
+
+		// Propeller Blades.
+		drawBlade(45.0, commandBladeLength);
+		drawBlade(135.0, commandBladeLength);
+		
+	glPopMatrix();
+}
+
+// Draw Zeppelin Body Propeller.
+void drawBodyPropeller() {
+	glMaterialfv(GL_FRONT, GL_AMBIENT, robotArm_mat_ambient);
+	glMaterialfv(GL_FRONT, GL_SPECULAR, robotArm_mat_specular);
+	glMaterialfv(GL_FRONT, GL_DIFFUSE, robotArm_mat_diffuse);
+	glMaterialfv(GL_FRONT, GL_SHININESS, robotArm_mat_shininess);
+
+	// Drive Shaft.
+	glPushMatrix();
+		// Position Drive Shaft Relative to Parent (Body)
+		glTranslatef(((driveShaftWidth / 0.125) +  0.5 * zeppelinBodyWidth), 0.0, 0.0);
+
+		// Build Drive Shaft.
+		glPushMatrix();
+			glScalef(driveShaftWidth, driveShaftLength, driveShaftDepth);
+			glutSolidCube(1.0);
+		glPopMatrix();
+
+		// Propeller Blades.
+		drawBlade(45.0, bodyBladeLength);
+		drawBlade(135.0, bodyBladeLength);
+		
+	glPopMatrix();
+}
+
+// Draw Propeller Blade on Drive Shaft - Blade Length customizable for propellers with different parents + initAngle to define starting orientation for the blade
+void drawBlade(float initAngle, float bladeLength) {
+	glMaterialfv(GL_FRONT, GL_AMBIENT, robotArm_mat_ambient);
+	glMaterialfv(GL_FRONT, GL_SPECULAR, robotArm_mat_specular);
+	glMaterialfv(GL_FRONT, GL_DIFFUSE, robotArm_mat_diffuse);
+	glMaterialfv(GL_FRONT, GL_SHININESS, robotArm_mat_shininess);
+
+	// Propeller Blade.
+	glPushMatrix();
+		// Position Blade Relative to Parent (Drive Shaft)
+		glTranslatef(0.5 * driveShaftWidth, 0.0, 0.0);
+
+		// Build Propeller Blade.
+		glPushMatrix();
+			glRotatef(initAngle + bladeAngle, 1.0, 0.0, 0.0);
+
+			glScalef(bladeWidth, bladeLength, bladeDepth);
+			glutSolidSphere(1.0, 100, 100);
+		glPopMatrix();
 	glPopMatrix();
 }
 
@@ -521,6 +626,21 @@ void reshape(int w, int h)
 	gluLookAt(0.0, cameraY, cameraZ, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
 }
 
+// Callback, called when user rotates zeppelin in y-axis
+void onRotate(float angleIncrement) {
+	zeppelinAngle += angleIncrement;
+	// Calculate/Update Forward Direction Vector based on Zeppeling Angle.
+	forwardDirection.Set(cosf(zeppelinAngle * (M_PI/180.0)), 0.0, -sinf(zeppelinAngle  * (M_PI/180.0)));
+	// Normalize the forward direction for a magnitude of 1
+	forwardDirection.Normalize();
+}
+
+// Callback, called when user uses arrow keys to move forward
+void onMove() {
+	// Update the Zeppelin Center to be used to translate zeppeling forward.
+	zeppelinCenter += forwardDirection;
+}
+
 bool stop = false;
 
 // Callback, handles input from the keyboard, non-arrow keys
@@ -532,16 +652,16 @@ void keyboard(unsigned char key, int x, int y)
 
 		break;
 	case 'r':
-		zeppelinAngle += 2.0;
+		onRotate(2.0);
 		break;
 	case 'R':
-		zeppelinAngle -= 2.0;
+		onRotate(-2.0);
 		break;
 	case 'a':
-		shoulderAngle += 2.0;
+		zeppelinHeight += 2.0;
 		break;
 	case 'A':
-		shoulderAngle -= 2.0;
+		zeppelinHeight -= 2.0;
 		break;
 	case 'g':
 		gunAngle += 2.0;
@@ -555,6 +675,9 @@ void keyboard(unsigned char key, int x, int y)
 	case 'S':
 		stop = true;
 		break;
+	case 'w':
+		onMove();
+		break;
 	}
 
 	glutPostRedisplay();   // Trigger a window redisplay
@@ -565,7 +688,9 @@ void animationHandler(int param)
 {
 	if (!stop)
 	{
-		shoulderAngle += 1.0;
+		// Animate the blade angle (Return to 0 after passing 360)
+		if (bladeAngle == 360.0) bladeAngle = 0.0;
+		else bladeAngle += 1.0;
 		glutPostRedisplay();
 		glutTimerFunc(10, animationHandler, 0);
 	}
