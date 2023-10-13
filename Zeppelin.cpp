@@ -144,6 +144,7 @@ void drawLowerBody();
 void drawLeftArm();
 void drawRightArm();
 
+// Draw Functions.
 void drawZeppelin();
 void drawZeppelinBody();
 void drawCommandCenter();
@@ -154,8 +155,10 @@ void drawPropeller();
 void drawBodyPropeller();
 void drawBlade(float initAngle, float bladeLength);
 
+// User Interaction Utility Functions.
 void onRotate(float angleIncrement);
 void onMove();
+void onHeightChange(float heightIncrement);
 
 int main(int argc, char **argv)
 {
@@ -266,8 +269,6 @@ void drawZeppelin()
 		glTranslatef(0.0, zeppelinHeight, 0.0);
 		glTranslatef(zeppelinCenter.GetX(), 0.0, zeppelinCenter.GetZ());
 
-		// Rotate to Face Positive X-Axis (Since Model was built facing negative x originally).
-		glRotatef(180.0, 0.0, 1.0, 0.0);
 		// Rotate the Zeppelin about its Y Axis.
 		glRotatef(zeppelinAngle, 0.0, 1.0, 0.0);
 
@@ -327,11 +328,11 @@ void drawTopFin() {
 
 	glPushMatrix();
 	// Position Top Fin with Respect to Parent (body)
-	glTranslatef(finWidth + 0.65 * zeppelinBodyWidth, finLength + 0.10*zeppelinBodyLength, 0.0);
+	glTranslatef(-(finWidth + 0.65 * zeppelinBodyWidth), finLength + 0.10*zeppelinBodyLength, 0.0);
 
 	// Build the top fin.
 	glPushMatrix();
-		glRotatef(90.0, 0.0, 1.0, 0.0);
+		glRotatef(-90.0, 0.0, 1.0, 0.0);
 		glRotatef(165.0, 1.0, 0.0, 0.0);
 
 		glScalef(finWidth, finLength, finDepth);
@@ -349,11 +350,11 @@ void drawLeftFin() {
 
 	glPushMatrix();
 	// Position Top Fin with Respect to Parent (body)
-	glTranslatef(finWidth + 0.65 * zeppelinBodyWidth, 0.0, 0.45 * finDepth + 0.5 * zeppelinBodyDepth);
+	glTranslatef(-(finWidth + 0.65 * zeppelinBodyWidth), 0.0, 0.45 * finDepth + 0.5 * zeppelinBodyDepth);
 
 	// Build the top fin.
 	glPushMatrix();
-		glRotatef(90.0, 0.0, 0.0, 1.0);
+		glRotatef(-90.0, 0.0, 0.0, 1.0);
 		glRotatef(60.0, 1.0, 0.0, 0.0);
 
 		glScalef(finWidth, finLength, finDepth);
@@ -371,11 +372,11 @@ void drawRightFin() {
 
 	glPushMatrix();
 	// Position Top Fin with Respect to Parent (body)
-	glTranslatef(finWidth + 0.65 * zeppelinBodyWidth, 0.0, -(0.45 * finDepth + 0.5 * zeppelinBodyDepth));
+	glTranslatef(-(finWidth + 0.65 * zeppelinBodyWidth), 0.0, -(0.45 * finDepth + 0.5 * zeppelinBodyDepth));
 
 	// Build the top fin.
 	glPushMatrix();
-		glRotatef(-90.0, 0.0, 0.0, 1.0);
+		glRotatef(90.0, 0.0, 0.0, 1.0);
 		glRotatef(60.0, 1.0, 0.0, 0.0);
 
 		glScalef(finWidth, finLength, finDepth);
@@ -394,7 +395,7 @@ void drawPropeller() {
 	// Drive Shaft.
 	glPushMatrix();
 		// Position Drive Shaft Relative to Parent (Command Center)
-		glTranslatef((0.5*driveShaftWidth + 0.5*commandCenterWidth), -0.25 * commandCenterLength, 0.0);
+		glTranslatef(-(0.5*driveShaftWidth + 0.5*commandCenterWidth), -0.25 * commandCenterLength, 0.0);
 
 		// Build Drive Shaft.
 		glPushMatrix();
@@ -419,7 +420,7 @@ void drawBodyPropeller() {
 	// Drive Shaft.
 	glPushMatrix();
 		// Position Drive Shaft Relative to Parent (Body)
-		glTranslatef(((driveShaftWidth / 0.125) +  0.5 * zeppelinBodyWidth), 0.0, 0.0);
+		glTranslatef(-((driveShaftWidth / 0.125) +  0.5 * zeppelinBodyWidth), 0.0, 0.0);
 
 		// Build Drive Shaft.
 		glPushMatrix();
@@ -444,7 +445,7 @@ void drawBlade(float initAngle, float bladeLength) {
 	// Propeller Blade.
 	glPushMatrix();
 		// Position Blade Relative to Parent (Drive Shaft)
-		glTranslatef(0.5 * driveShaftWidth, 0.0, 0.0);
+		glTranslatef(-(0.5 * driveShaftWidth), 0.0, 0.0);
 
 		// Build Propeller Blade.
 		glPushMatrix();
@@ -641,39 +642,30 @@ void onMove() {
 	zeppelinCenter += forwardDirection;
 }
 
-bool stop = false;
+// Callback, called when user uses up/down arrow keys to ascend/descend
+void onHeightChange(float heightIncrement) {
+	zeppelinHeight += heightIncrement;
+}
 
 // Callback, handles input from the keyboard, non-arrow keys
 void keyboard(unsigned char key, int x, int y)
 {
 	switch (key)
 	{
-	case 't':
-
-		break;
 	case 'r':
 		onRotate(2.0);
 		break;
 	case 'R':
 		onRotate(-2.0);
 		break;
-	case 'a':
-		zeppelinHeight += 2.0;
+	case 'y':
+		onHeightChange(2.0);
 		break;
-	case 'A':
-		zeppelinHeight -= 2.0;
-		break;
-	case 'g':
-		gunAngle += 2.0;
-		break;
-	case 'G':
-		gunAngle -= 2.0;
+	case 'Y':
+		onHeightChange(-2.0);
 		break;
 	case 's':
 		glutTimerFunc(10, animationHandler, 0);
-		break;
-	case 'S':
-		stop = true;
 		break;
 	case 'w':
 		onMove();
@@ -686,30 +678,31 @@ void keyboard(unsigned char key, int x, int y)
 
 void animationHandler(int param)
 {
-	if (!stop)
-	{
-		// Animate the blade angle (Return to 0 after passing 360)
-		if (bladeAngle == 360.0) bladeAngle = 0.0;
-		else bladeAngle += 1.0;
-		glutPostRedisplay();
-		glutTimerFunc(10, animationHandler, 0);
-	}
+	// Animate the blade angle (Return to 0 after passing 360)
+	if (bladeAngle == 360.0) bladeAngle = 0.0;
+	else bladeAngle += 1.0;
+	glutPostRedisplay();
+	glutTimerFunc(10, animationHandler, 0);
 }
-
 
 
 // Callback, handles input from the keyboard, function and arrow keys
 void functionKeys(int key, int x, int y)
 {
-	// Help key
-	if (key == GLUT_KEY_F1)
-	{
-
+	// Ascend/Descend (Up/Down Arrow Keys)
+	if (key == GLUT_KEY_UP) {
+		onHeightChange(2.0);
 	}
-	// Do transformations with arrow keys
-	//else if (...)   // GLUT_KEY_DOWN, GLUT_KEY_UP, GLUT_KEY_RIGHT, GLUT_KEY_LEFT
-	//{
-	//}
+	else if (key == GLUT_KEY_DOWN) {
+		onHeightChange(-2.0);
+	}
+	// Right/Left Turning (Right/Left Arrow Keys)
+	if (key == GLUT_KEY_RIGHT) {
+		onRotate(-2.0);
+	}
+	else if (key == GLUT_KEY_LEFT) {
+		onRotate(2.0);
+	}
 
 	glutPostRedisplay();   // Trigger a window redisplay
 }
