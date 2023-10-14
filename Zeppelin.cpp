@@ -66,6 +66,11 @@ float bladeWidth = 0.2 * driveShaftWidth;
 float bodyBladeLength = 8.0 * driveShaftLength;
 float commandBladeLength = 4.0 * driveShaftLength;
 float bladeDepth = 0.4 * driveShaftDepth;
+float lightBaseWidth = 0.25 * commandCenterWidth;
+float lightBaseLength = 0.2 * commandCenterLength;
+float lightBaseDepth = 0.25 * commandCenterDepth;
+float lightWidth = 0.25 * lightBaseWidth;
+float lightLength = 2.0 * lightBaseLength;
 
 // Zeppelin Forward Direction vector.
 VECTOR3D forwardDirection = VECTOR3D(1.0, 0.0, 0.0);
@@ -83,26 +88,35 @@ float bladeAngle = 0.0;
 
 // Lighting/shading and material properties for robot - upcoming lecture - just copy for now
 // Robot RGBA material properties (NOTE: we will learn about this later in the semester)
-GLfloat robotBody_mat_ambient[] = { 0.0f,0.0f,0.0f,1.0f };
-GLfloat robotBody_mat_specular[] = { 0.45f,0.55f,0.45f,1.0f };
-GLfloat robotBody_mat_diffuse[] = { 0.1f,0.35f,0.1f,1.0f };
-GLfloat robotBody_mat_shininess[] = { 32.0F };
+GLfloat zeppelinBody_mat_ambient[] = { 0.0f,0.0f,0.0f,1.0f };
+GLfloat zeppelinBody_mat_specular[] = { 0.45f,0.55f,0.45f,1.0f };
+GLfloat zeppelinBody_mat_diffuse[] = { 0.1f,0.1f,0.1f,1.0f };
+GLfloat zeppelinBody_mat_shininess[] = { 32.0F };
 
-
-GLfloat robotArm_mat_ambient[] = { 0.0215f, 0.1745f, 0.0215f, 0.55f };
-GLfloat robotArm_mat_diffuse[] = { 0.5f,0.0f,0.0f,1.0f };
-GLfloat robotArm_mat_specular[] = { 0.7f, 0.6f, 0.6f, 1.0f };
-GLfloat robotArm_mat_shininess[] = { 32.0F };
+GLfloat fin_mat_ambient[] = { 0.0215f, 0.1745f, 0.0215f, 0.55f };
+GLfloat fin_mat_diffuse[] = { 0.5f,0.0f,0.0f,1.0f };
+GLfloat fin_mat_specular[] = { 0.7f, 0.6f, 0.6f, 1.0f };
+GLfloat fin_mat_shininess[] = { 32.0F };
 
 GLfloat gun_mat_ambient[] = { 0.0f, 0.0f, 0.0f, 1.0f };
 GLfloat gun_mat_diffuse[] = { 0.01f,0.0f,0.01f,0.01f };
 GLfloat gun_mat_specular[] = { 0.5f, 0.5f, 0.5f, 1.0f };
 GLfloat gun_mat_shininess[] = { 100.0F };
 
-GLfloat robotLowerBody_mat_ambient[] = { 0.25f, 0.25f, 0.25f, 1.0f };
-GLfloat robotLowerBody_mat_diffuse[] = { 0.4f, 0.4f, 0.4f, 1.0f };
-GLfloat robotLowerBody_mat_specular[] = { 0.774597f, 0.774597f, 0.774597f, 1.0f };
-GLfloat robotLowerBody_mat_shininess[] = { 76.8F };
+GLfloat command_mat_ambient[] = { 0.25f, 0.25f, 0.25f, 1.0f };
+GLfloat command_mat_diffuse[] = { 0.4f, 0.4f, 0.4f, 1.0f };
+GLfloat command_mat_specular[] = { 0.0f, 0.0f, 0.0f, 1.0f };
+GLfloat command_mat_shininess[] = { 100.0F };
+
+GLfloat blade_mat_ambient[] = { 0.25f, 0.25f, 0.25f, 1.0f };
+GLfloat blade_mat_diffuse[] = { 0.3f, 0.3f, 0.3f, 1.0f };
+GLfloat blade_mat_specular[] = { 0.774597f, 0.774597f, 0.774597f, 1.0f };
+GLfloat blade_mat_shininess[] = { 76.8F };
+
+GLfloat shaft_mat_ambient[] = { 0.0f, 0.0f, 0.0f, 1.0f };
+GLfloat shaft_mat_diffuse[] = { 0.25f, 0.25f, 0.25f, 1.0f };
+GLfloat shaft_mat_specular[] = { 0.45f,0.55f,0.45f,1.0f };
+GLfloat shaft_mat_shininess[] = { 32.0F };
 
 
 // Light properties
@@ -148,6 +162,7 @@ void drawRightArm();
 void drawZeppelin();
 void drawZeppelinBody();
 void drawCommandCenter();
+void drawLights();
 void drawTopFin();
 void drawLeftFin();
 void drawRightFin();
@@ -179,6 +194,9 @@ int main(int argc, char **argv)
 	glutMotionFunc(mouseMotionHandler);
 	glutKeyboardFunc(keyboard);
 	glutSpecialFunc(functionKeys);
+
+	// Activate Propeller Animation.
+	glutTimerFunc(10, animationHandler, 0);
 
 	// Start event loop, never returns
 	glutMainLoop();
@@ -286,10 +304,10 @@ void drawZeppelin()
 // Draw Zeppelin Body Object.
 void drawZeppelinBody()
 {
-	glMaterialfv(GL_FRONT, GL_AMBIENT, robotBody_mat_ambient);
-	glMaterialfv(GL_FRONT, GL_SPECULAR, robotBody_mat_specular);
-	glMaterialfv(GL_FRONT, GL_DIFFUSE, robotBody_mat_diffuse);
-	glMaterialfv(GL_FRONT, GL_SHININESS, robotBody_mat_shininess);
+	glMaterialfv(GL_FRONT, GL_AMBIENT, zeppelinBody_mat_ambient);
+	glMaterialfv(GL_FRONT, GL_SPECULAR, zeppelinBody_mat_specular);
+	glMaterialfv(GL_FRONT, GL_DIFFUSE, zeppelinBody_mat_diffuse);
+	glMaterialfv(GL_FRONT, GL_SHININESS, zeppelinBody_mat_shininess);
 
 	glPushMatrix();
 	glScalef(zeppelinBodyWidth, zeppelinBodyLength, zeppelinBodyDepth);
@@ -299,10 +317,10 @@ void drawZeppelinBody()
 
 // Draw Zeppelin Command Center.
 void drawCommandCenter() {
-	glMaterialfv(GL_FRONT, GL_AMBIENT, robotLowerBody_mat_ambient);
-	glMaterialfv(GL_FRONT, GL_SPECULAR, robotLowerBody_mat_specular);
-	glMaterialfv(GL_FRONT, GL_DIFFUSE, robotLowerBody_mat_diffuse);
-	glMaterialfv(GL_FRONT, GL_SHININESS, robotLowerBody_mat_shininess);
+	glMaterialfv(GL_FRONT, GL_AMBIENT, command_mat_ambient);
+	glMaterialfv(GL_FRONT, GL_SPECULAR, command_mat_specular);
+	glMaterialfv(GL_FRONT, GL_DIFFUSE, command_mat_diffuse);
+	glMaterialfv(GL_FRONT, GL_SHININESS, command_mat_shininess);
 
 	glPushMatrix();
 	// Position Command Center with Respect to Parent (body)
@@ -316,15 +334,65 @@ void drawCommandCenter() {
 
 	// Draw Propeller (Child Object)
 	drawPropeller();
+
+	// Draw Undercarriage Lights
+	drawLights();
+	glPopMatrix();
+}
+
+// Draw Undercarriage Lights
+void drawLights() {
+	glMaterialfv(GL_FRONT, GL_AMBIENT, zeppelinBody_mat_ambient);
+	glMaterialfv(GL_FRONT, GL_SPECULAR, zeppelinBody_mat_specular);
+	glMaterialfv(GL_FRONT, GL_DIFFUSE, zeppelinBody_mat_diffuse);
+	glMaterialfv(GL_FRONT, GL_SHININESS, zeppelinBody_mat_shininess);
+
+	glPushMatrix();
+		// Position Light Base with Respect to Parent (Command Center)
+		glTranslatef(0.0, -(0.25*lightBaseLength + 0.5*commandCenterLength), 0.0);
+
+		// Build Light Base.
+		glPushMatrix();
+			glScalef(lightBaseWidth, lightBaseLength, lightBaseDepth);
+			glutSolidSphere(1.0, 100, 100);
+		glPopMatrix();
+
+		// Change Materials for Lights
+		glMaterialfv(GL_FRONT, GL_AMBIENT, command_mat_ambient);
+		glMaterialfv(GL_FRONT, GL_SPECULAR, command_mat_specular);
+		glMaterialfv(GL_FRONT, GL_DIFFUSE, command_mat_diffuse);
+		glMaterialfv(GL_FRONT, GL_SHININESS, command_mat_shininess);
+
+		glPushMatrix();
+			// Position First Light with Respect to Parent (Light Base)
+			glTranslatef(0.0, -(0.85 * lightLength + 0.5 * lightBaseLength), 0.35 * lightBaseDepth);
+
+			// Build Light
+			glPushMatrix();
+				glRotatef(-110.0, 1.0, 0.0, 0.0);
+				glutSolidCone(lightWidth, lightLength, 25, 25);
+			glPopMatrix();
+		glPopMatrix();
+
+		glPushMatrix();
+			// Position Second Light with Respect to Parent (Light Base)
+			glTranslatef(0.0, -(0.85 * lightLength + 0.5 * lightBaseLength), -0.5 * lightBaseDepth);
+
+			// Build Light
+			glPushMatrix();
+				glRotatef(-70.0, 1.0, 0.0, 0.0);
+				glutSolidCone(lightWidth, lightLength, 25, 25);
+			glPopMatrix();
+		glPopMatrix();
 	glPopMatrix();
 }
 
 // Draw Zeppelin Top Fin.
 void drawTopFin() {
-	glMaterialfv(GL_FRONT, GL_AMBIENT, robotArm_mat_ambient);
-	glMaterialfv(GL_FRONT, GL_SPECULAR, robotArm_mat_specular);
-	glMaterialfv(GL_FRONT, GL_DIFFUSE, robotArm_mat_diffuse);
-	glMaterialfv(GL_FRONT, GL_SHININESS, robotArm_mat_shininess);
+	glMaterialfv(GL_FRONT, GL_AMBIENT, fin_mat_ambient);
+	glMaterialfv(GL_FRONT, GL_SPECULAR, fin_mat_specular);
+	glMaterialfv(GL_FRONT, GL_DIFFUSE, fin_mat_diffuse);
+	glMaterialfv(GL_FRONT, GL_SHININESS, fin_mat_shininess);
 
 	glPushMatrix();
 	// Position Top Fin with Respect to Parent (body)
@@ -343,10 +411,10 @@ void drawTopFin() {
 
 // Draw Zeppelin Left Fin.
 void drawLeftFin() {
-	glMaterialfv(GL_FRONT, GL_AMBIENT, robotArm_mat_ambient);
-	glMaterialfv(GL_FRONT, GL_SPECULAR, robotArm_mat_specular);
-	glMaterialfv(GL_FRONT, GL_DIFFUSE, robotArm_mat_diffuse);
-	glMaterialfv(GL_FRONT, GL_SHININESS, robotArm_mat_shininess);
+	glMaterialfv(GL_FRONT, GL_AMBIENT, fin_mat_ambient);
+	glMaterialfv(GL_FRONT, GL_SPECULAR, fin_mat_specular);
+	glMaterialfv(GL_FRONT, GL_DIFFUSE, fin_mat_diffuse);
+	glMaterialfv(GL_FRONT, GL_SHININESS, fin_mat_shininess);
 
 	glPushMatrix();
 	// Position Top Fin with Respect to Parent (body)
@@ -365,10 +433,10 @@ void drawLeftFin() {
 
 // Draw Zeppelin Right Fin.
 void drawRightFin() {
-	glMaterialfv(GL_FRONT, GL_AMBIENT, robotArm_mat_ambient);
-	glMaterialfv(GL_FRONT, GL_SPECULAR, robotArm_mat_specular);
-	glMaterialfv(GL_FRONT, GL_DIFFUSE, robotArm_mat_diffuse);
-	glMaterialfv(GL_FRONT, GL_SHININESS, robotArm_mat_shininess);
+	glMaterialfv(GL_FRONT, GL_AMBIENT, fin_mat_ambient);
+	glMaterialfv(GL_FRONT, GL_SPECULAR, fin_mat_specular);
+	glMaterialfv(GL_FRONT, GL_DIFFUSE, fin_mat_diffuse);
+	glMaterialfv(GL_FRONT, GL_SHININESS, fin_mat_shininess);
 
 	glPushMatrix();
 	// Position Top Fin with Respect to Parent (body)
@@ -387,10 +455,10 @@ void drawRightFin() {
 
 // Draw Zeppelin Command Center Propeller.
 void drawPropeller() {
-	glMaterialfv(GL_FRONT, GL_AMBIENT, robotArm_mat_ambient);
-	glMaterialfv(GL_FRONT, GL_SPECULAR, robotArm_mat_specular);
-	glMaterialfv(GL_FRONT, GL_DIFFUSE, robotArm_mat_diffuse);
-	glMaterialfv(GL_FRONT, GL_SHININESS, robotArm_mat_shininess);
+	glMaterialfv(GL_FRONT, GL_AMBIENT, shaft_mat_ambient);
+	glMaterialfv(GL_FRONT, GL_SPECULAR, shaft_mat_specular);
+	glMaterialfv(GL_FRONT, GL_DIFFUSE, shaft_mat_diffuse);
+	glMaterialfv(GL_FRONT, GL_SHININESS, shaft_mat_shininess);
 
 	// Drive Shaft.
 	glPushMatrix();
@@ -412,10 +480,10 @@ void drawPropeller() {
 
 // Draw Zeppelin Body Propeller.
 void drawBodyPropeller() {
-	glMaterialfv(GL_FRONT, GL_AMBIENT, robotArm_mat_ambient);
-	glMaterialfv(GL_FRONT, GL_SPECULAR, robotArm_mat_specular);
-	glMaterialfv(GL_FRONT, GL_DIFFUSE, robotArm_mat_diffuse);
-	glMaterialfv(GL_FRONT, GL_SHININESS, robotArm_mat_shininess);
+	glMaterialfv(GL_FRONT, GL_AMBIENT, shaft_mat_ambient);
+	glMaterialfv(GL_FRONT, GL_SPECULAR, shaft_mat_specular);
+	glMaterialfv(GL_FRONT, GL_DIFFUSE, shaft_mat_diffuse);
+	glMaterialfv(GL_FRONT, GL_SHININESS, shaft_mat_shininess);
 
 	// Drive Shaft.
 	glPushMatrix();
@@ -437,10 +505,10 @@ void drawBodyPropeller() {
 
 // Draw Propeller Blade on Drive Shaft - Blade Length customizable for propellers with different parents + initAngle to define starting orientation for the blade
 void drawBlade(float initAngle, float bladeLength) {
-	glMaterialfv(GL_FRONT, GL_AMBIENT, robotArm_mat_ambient);
-	glMaterialfv(GL_FRONT, GL_SPECULAR, robotArm_mat_specular);
-	glMaterialfv(GL_FRONT, GL_DIFFUSE, robotArm_mat_diffuse);
-	glMaterialfv(GL_FRONT, GL_SHININESS, robotArm_mat_shininess);
+	glMaterialfv(GL_FRONT, GL_AMBIENT, blade_mat_ambient);
+	glMaterialfv(GL_FRONT, GL_SPECULAR, blade_mat_specular);
+	glMaterialfv(GL_FRONT, GL_DIFFUSE, blade_mat_diffuse);
+	glMaterialfv(GL_FRONT, GL_SHININESS, blade_mat_shininess);
 
 	// Propeller Blade.
 	glPushMatrix();
@@ -478,10 +546,10 @@ void drawRobot()
 
 void drawBody()
 {
-	glMaterialfv(GL_FRONT, GL_AMBIENT, robotBody_mat_ambient);
-	glMaterialfv(GL_FRONT, GL_SPECULAR, robotBody_mat_specular);
-	glMaterialfv(GL_FRONT, GL_DIFFUSE, robotBody_mat_diffuse);
-	glMaterialfv(GL_FRONT, GL_SHININESS, robotBody_mat_shininess);
+	glMaterialfv(GL_FRONT, GL_AMBIENT, zeppelinBody_mat_ambient);
+	glMaterialfv(GL_FRONT, GL_SPECULAR, zeppelinBody_mat_specular);
+	glMaterialfv(GL_FRONT, GL_DIFFUSE, zeppelinBody_mat_diffuse);
+	glMaterialfv(GL_FRONT, GL_SHININESS, zeppelinBody_mat_shininess);
 
 	glPushMatrix();
 	glScalef(robotBodyWidth, robotBodyLength, robotBodyDepth);
@@ -492,10 +560,10 @@ void drawBody()
 void drawHead()
 {
 	// Set robot material properties per body part. Can have seperate material properties for each part
-	glMaterialfv(GL_FRONT, GL_AMBIENT, robotBody_mat_ambient);
-	glMaterialfv(GL_FRONT, GL_SPECULAR, robotBody_mat_specular);
-	glMaterialfv(GL_FRONT, GL_DIFFUSE, robotBody_mat_diffuse);
-	glMaterialfv(GL_FRONT, GL_SHININESS, robotBody_mat_shininess);
+	glMaterialfv(GL_FRONT, GL_AMBIENT, zeppelinBody_mat_ambient);
+	glMaterialfv(GL_FRONT, GL_SPECULAR, zeppelinBody_mat_specular);
+	glMaterialfv(GL_FRONT, GL_DIFFUSE, zeppelinBody_mat_diffuse);
+	glMaterialfv(GL_FRONT, GL_SHININESS, zeppelinBody_mat_shininess);
 
 	glPushMatrix();
 	// Position head with respect to parent (body)
@@ -512,10 +580,10 @@ void drawHead()
 
 void drawLowerBody()
 {
-	glMaterialfv(GL_FRONT, GL_AMBIENT, robotLowerBody_mat_ambient);
-	glMaterialfv(GL_FRONT, GL_SPECULAR, robotLowerBody_mat_specular);
-	glMaterialfv(GL_FRONT, GL_DIFFUSE, robotLowerBody_mat_diffuse);
-	glMaterialfv(GL_FRONT, GL_SHININESS, robotLowerBody_mat_shininess);
+	glMaterialfv(GL_FRONT, GL_AMBIENT, blade_mat_ambient);
+	glMaterialfv(GL_FRONT, GL_SPECULAR, blade_mat_specular);
+	glMaterialfv(GL_FRONT, GL_DIFFUSE, blade_mat_diffuse);
+	glMaterialfv(GL_FRONT, GL_SHININESS, blade_mat_shininess);
 
 	glPushMatrix();
 	// Position stanchion and base with respect to body
@@ -543,10 +611,10 @@ void drawLowerBody()
 
 void drawLeftArm()
 {
-	glMaterialfv(GL_FRONT, GL_AMBIENT, robotArm_mat_ambient);
-	glMaterialfv(GL_FRONT, GL_SPECULAR, robotArm_mat_specular);
-	glMaterialfv(GL_FRONT, GL_DIFFUSE, robotArm_mat_diffuse);
-	glMaterialfv(GL_FRONT, GL_SHININESS, robotArm_mat_shininess);
+	glMaterialfv(GL_FRONT, GL_AMBIENT, fin_mat_ambient);
+	glMaterialfv(GL_FRONT, GL_SPECULAR, fin_mat_specular);
+	glMaterialfv(GL_FRONT, GL_DIFFUSE, fin_mat_diffuse);
+	glMaterialfv(GL_FRONT, GL_SHININESS, fin_mat_shininess);
 
 	glPushMatrix();
     // Position arm with respect to parent body
@@ -563,10 +631,10 @@ void drawLeftArm()
 
 void drawRightArm()
 {
-	glMaterialfv(GL_FRONT, GL_AMBIENT, robotArm_mat_ambient);
-	glMaterialfv(GL_FRONT, GL_SPECULAR, robotArm_mat_specular);
-	glMaterialfv(GL_FRONT, GL_DIFFUSE, robotArm_mat_diffuse);
-	glMaterialfv(GL_FRONT, GL_SHININESS, robotArm_mat_shininess);
+	glMaterialfv(GL_FRONT, GL_AMBIENT, fin_mat_ambient);
+	glMaterialfv(GL_FRONT, GL_SPECULAR, fin_mat_specular);
+	glMaterialfv(GL_FRONT, GL_DIFFUSE, fin_mat_diffuse);
+	glMaterialfv(GL_FRONT, GL_SHININESS, fin_mat_shininess);
 
 	glPushMatrix();
 
@@ -663,9 +731,6 @@ void keyboard(unsigned char key, int x, int y)
 		break;
 	case 'Y':
 		onHeightChange(-2.0);
-		break;
-	case 's':
-		glutTimerFunc(10, animationHandler, 0);
 		break;
 	case 'w':
 		onMove();
