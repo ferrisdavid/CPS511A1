@@ -1,5 +1,5 @@
 /*******************************************************************
-		   Hierarchical Multi-Part Model Example
+		   Zeppelin Hierarchical Multi-Part Model
 ********************************************************************/
 #define GL_SILENCE_DEPRECATION
 
@@ -23,31 +23,6 @@ const int vHeight = 1200; // Viewport height in pixels
 // Camera Position (Y and Z).
 const float cameraZ = 35.0;
 const float cameraY = 0.0;
-
-// Note how everything depends on robot body dimensions so that can scale entire robot proportionately
-// just by changing robot body scale
-float robotBodyWidth = 8.0;
-float robotBodyLength = 10.0;
-float robotBodyDepth = 6.0;
-float headWidth = 0.4*robotBodyWidth;
-float headLength = headWidth;
-float headDepth = headWidth;
-float upperArmLength = robotBodyLength;
-float upperArmWidth = 0.125*robotBodyWidth;
-float gunLength = upperArmLength / 4.0;
-float gunWidth = upperArmWidth;
-float gunDepth = upperArmWidth;
-float stanchionLength = robotBodyLength;
-float stanchionRadius = 0.1*robotBodyDepth;
-float baseWidth = 2 * robotBodyWidth;
-float baseLength = 0.25*stanchionLength;
-
-// Control Robot body rotation on base
-float robotAngle = 0.0;
-
-// Control arm rotation
-float shoulderAngle = -40.0;
-float gunAngle = -25.0;
 
 // Zeppelin Global Object Configs.
 float zeppelinBodyWidth = 15.0;
@@ -146,17 +121,9 @@ int meshSize = 16;
 void initOpenGL(int w, int h);
 void display(void);
 void reshape(int w, int h);
-void mouse(int button, int state, int x, int y);
-void mouseMotionHandler(int xMouse, int yMouse);
 void keyboard(unsigned char key, int x, int y);
 void functionKeys(int key, int x, int y);
 void animationHandler(int param);
-void drawRobot();
-void drawBody();
-void drawHead();
-void drawLowerBody();
-void drawLeftArm();
-void drawRightArm();
 
 // Draw Functions.
 void drawZeppelin();
@@ -190,8 +157,6 @@ int main(int argc, char **argv)
 	// Register callback functions
 	glutDisplayFunc(display);
 	glutReshapeFunc(reshape);
-	glutMouseFunc(mouse);
-	glutMotionFunc(mouseMotionHandler);
 	glutKeyboardFunc(keyboard);
 	glutSpecialFunc(functionKeys);
 
@@ -525,158 +490,6 @@ void drawBlade(float initAngle, float bladeLength) {
 	glPopMatrix();
 }
 
-void drawRobot()
-{
-	glPushMatrix();
-	 // spin robot on base. 
-	 glRotatef(robotAngle, 0.0, 1.0, 0.0);
-
-	 drawBody();
-	 drawHead();
-	 drawLeftArm();
-	 drawRightArm();
-	glPopMatrix();
-	
-	// don't want to spin fixed base in this example
-	drawLowerBody();
-
-	glPopMatrix();
-}
-
-
-void drawBody()
-{
-	glMaterialfv(GL_FRONT, GL_AMBIENT, zeppelinBody_mat_ambient);
-	glMaterialfv(GL_FRONT, GL_SPECULAR, zeppelinBody_mat_specular);
-	glMaterialfv(GL_FRONT, GL_DIFFUSE, zeppelinBody_mat_diffuse);
-	glMaterialfv(GL_FRONT, GL_SHININESS, zeppelinBody_mat_shininess);
-
-	glPushMatrix();
-	glScalef(robotBodyWidth, robotBodyLength, robotBodyDepth);
-	glutSolidCube(1.0);
-	glPopMatrix();
-}
-
-void drawHead()
-{
-	// Set robot material properties per body part. Can have seperate material properties for each part
-	glMaterialfv(GL_FRONT, GL_AMBIENT, zeppelinBody_mat_ambient);
-	glMaterialfv(GL_FRONT, GL_SPECULAR, zeppelinBody_mat_specular);
-	glMaterialfv(GL_FRONT, GL_DIFFUSE, zeppelinBody_mat_diffuse);
-	glMaterialfv(GL_FRONT, GL_SHININESS, zeppelinBody_mat_shininess);
-
-	glPushMatrix();
-	// Position head with respect to parent (body)
-	glTranslatef(0, 0.5*robotBodyLength+0.5*headLength, 0); // this will be done last
-	
-	// Build Head
-	glPushMatrix();
-	glScalef(0.4*robotBodyWidth, 0.4*robotBodyWidth, 0.4*robotBodyWidth);
-	glutSolidCube(1.0);
-	glPopMatrix();
-
-	glPopMatrix();
-}
-
-void drawLowerBody()
-{
-	glMaterialfv(GL_FRONT, GL_AMBIENT, blade_mat_ambient);
-	glMaterialfv(GL_FRONT, GL_SPECULAR, blade_mat_specular);
-	glMaterialfv(GL_FRONT, GL_DIFFUSE, blade_mat_diffuse);
-	glMaterialfv(GL_FRONT, GL_SHININESS, blade_mat_shininess);
-
-	glPushMatrix();
-	// Position stanchion and base with respect to body
-	glTranslatef(0, -1.5*robotBodyLength, 0.0); // this will be done last
-
-	// stanchion
-	glPushMatrix();
-	glScalef(stanchionRadius, stanchionLength, stanchionRadius);
-	glRotatef(-90.0, 1.0, 0.0, 0.0);
-	gluCylinder(gluNewQuadric(), 1.0, 1.0, 1.0, 20, 10);
-	glPopMatrix();
-
-	// base
-	glPushMatrix();
-	// Position base with respect to parent stanchion
-	glTranslatef(0.0, -0.25*stanchionLength, 0.0);
-	// Build base
-	glScalef(baseWidth, baseLength, baseWidth);
-	glRotatef(-90.0, 1.0, 0.0, 0.0);
-	glutSolidCube(1.0);
-	glPopMatrix();
-
-	glPopMatrix();
-}
-
-void drawLeftArm()
-{
-	glMaterialfv(GL_FRONT, GL_AMBIENT, fin_mat_ambient);
-	glMaterialfv(GL_FRONT, GL_SPECULAR, fin_mat_specular);
-	glMaterialfv(GL_FRONT, GL_DIFFUSE, fin_mat_diffuse);
-	glMaterialfv(GL_FRONT, GL_SHININESS, fin_mat_shininess);
-
-	glPushMatrix();
-    // Position arm with respect to parent body
-	glTranslatef(0.5*robotBodyWidth + 0.5*upperArmWidth, 0, 0.0); // this will be done last
-
-	// build arm
-	glPushMatrix();
-	glScalef(upperArmWidth, upperArmLength, upperArmWidth);
-	glutSolidCube(1.0);
-	glPopMatrix();
-
-	glPopMatrix();
-}
-
-void drawRightArm()
-{
-	glMaterialfv(GL_FRONT, GL_AMBIENT, fin_mat_ambient);
-	glMaterialfv(GL_FRONT, GL_SPECULAR, fin_mat_specular);
-	glMaterialfv(GL_FRONT, GL_DIFFUSE, fin_mat_diffuse);
-	glMaterialfv(GL_FRONT, GL_SHININESS, fin_mat_shininess);
-
-	glPushMatrix();
-
-	// Rotate arm at shoulder
-	glTranslatef(-(0.5*robotBodyWidth + 0.5*upperArmWidth), 0.5*upperArmLength, 0.0);
-	glRotatef(shoulderAngle, 1.0, 0.0, 0.0);
-	glTranslatef((0.5*robotBodyWidth + 0.5*upperArmWidth), -0.5*upperArmLength, 0.0);
-
-	// Position arm and gun with respect to parent body
-	glTranslatef(-(0.5*robotBodyWidth + 0.5*upperArmWidth), 0, 0.0);
-	
-	// build arm
-	glPushMatrix();
-	glScalef(upperArmWidth, upperArmLength, upperArmWidth);
-	glutSolidCube(1.0);
-	glPopMatrix();
-
-	//  Gun
-	glMaterialfv(GL_FRONT, GL_AMBIENT, gun_mat_ambient);
-	glMaterialfv(GL_FRONT, GL_SPECULAR, gun_mat_specular);
-	glMaterialfv(GL_FRONT, GL_DIFFUSE, gun_mat_diffuse);
-	glMaterialfv(GL_FRONT, GL_SHININESS, gun_mat_shininess);
-
-	glPushMatrix();
-	// rotate gun
-	glTranslatef(-(0.5*robotBodyWidth + 0.5*upperArmWidth), -(0.5*upperArmLength), 0.0);
-	glRotatef(gunAngle, 1.0, 0.0, 0.0);
-	glTranslatef((0.5*robotBodyWidth + 0.5*upperArmWidth), (0.5*upperArmLength ), 0.0);
-	
-	// Position gun with respect to parent arm 
-	glTranslatef(0, -(0.5*upperArmLength + 0.5*gunLength), 0.0);
-
-	// build gun
-	glScalef(gunWidth, gunLength, gunDepth);
-	glutSolidCube(1.0);
-	glPopMatrix();
-
-	glPopMatrix();
-
-
-}
-
 // Callback, called at initialization and whenever user resizes the window.
 void reshape(int w, int h)
 {
@@ -767,46 +580,6 @@ void functionKeys(int key, int x, int y)
 	}
 	else if (key == GLUT_KEY_LEFT) {
 		onRotate(2.0);
-	}
-
-	glutPostRedisplay();   // Trigger a window redisplay
-}
-
-
-// Mouse button callback - use only if you want to 
-void mouse(int button, int state, int x, int y)
-{
-	currentButton = button;
-
-	switch (button)
-	{
-	case GLUT_LEFT_BUTTON:
-		if (state == GLUT_DOWN)
-		{
-			;
-
-		}
-		break;
-	case GLUT_RIGHT_BUTTON:
-		if (state == GLUT_DOWN)
-		{
-			;
-		}
-		break;
-	default:
-		break;
-	}
-
-	glutPostRedisplay();   // Trigger a window redisplay
-}
-
-
-// Mouse motion callback - use only if you want to 
-void mouseMotionHandler(int xMouse, int yMouse)
-{
-	if (currentButton == GLUT_LEFT_BUTTON)
-	{
-		;
 	}
 
 	glutPostRedisplay();   // Trigger a window redisplay
