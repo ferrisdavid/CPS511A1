@@ -2,6 +2,7 @@
 		   Zeppelin Hierarchical Multi-Part Model
 ********************************************************************/
 #define GL_SILENCE_DEPRECATION
+#define STB_IMAGE_IMPLEMENTATION
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -9,6 +10,7 @@
 #include <math.h>
 #ifdef __APPLE__
 	#include <glut/glut.h>
+	#include <OpenGL/glu.h>
 #else
 	#include <gl/glut.h>
 #endif
@@ -16,13 +18,24 @@
 #include <vector>
 #include "VECTOR3D.h"
 #include "QuadMesh.h"
+#include "surfaceModeller.h"
+#include "stb_image.h"
 
 const int vWidth = 1200;  // Viewport width in pixels
 const int vHeight = 1200; // Viewport height in pixels
 
-// Camera Position (Y and Z).
-const float cameraZ = 35.0;
-const float cameraY = 0.0;
+// Camera Position X,Y,Z.
+float cameraZ = 65.0;
+float cameraY = 35.0;
+float cameraX = 0.0;
+
+// Camera Ref X,Y,Z.
+float cameraRefX = 0.0;
+float cameraRefY = 0.0;
+float cameraRefZ = 0.0;
+
+// Camera Mode.
+bool fov = false;
 
 // Zeppelin Global Object Configs.
 float zeppelinBodyWidth = 15.0;
@@ -46,10 +59,25 @@ float lightBaseLength = 0.2 * commandCenterLength;
 float lightBaseDepth = 0.25 * commandCenterDepth;
 float lightWidth = 0.25 * lightBaseWidth;
 float lightLength = 2.0 * lightBaseLength;
+float missileHolderWidth = 0.035 * zeppelinBodyLength;
+float missileHolderLength = 0.035 * zeppelinBodyLength;
+float missileHolderDepth = 0.3 * zeppelinBodyDepth;
+float missileBodyWidth = 0.4 * zeppelinBodyWidth;
+float missileBodyLength = 0.02 * zeppelinBodyWidth;
+float missileBodyDepth = 0.02 * zeppelinBodyWidth;
+float missileHeadWidth = 0.125 * missileBodyWidth;
+float missileHeadLength = missileBodyLength;
+float missileHeadDepth = missileBodyDepth;
 
 // Zeppelin Forward Direction vector.
 VECTOR3D forwardDirection = VECTOR3D(1.0, 0.0, 0.0);
 VECTOR3D zeppelinCenter = VECTOR3D();
+
+// Zeppelin Ally Missile Center.
+VECTOR3D missileCenter = VECTOR3D(0.0, 0.0, 0.0);
+
+// Zeppelin Ally Missile Boolean State.
+bool missileFire = false;
 
 // Zeppelin Rotation Angle around Y.
 float zeppelinAngle = 0.0;
@@ -65,7 +93,7 @@ float bladeAngle = 0.0;
 // Robot RGBA material properties (NOTE: we will learn about this later in the semester)
 GLfloat zeppelinBody_mat_ambient[] = { 0.0f,0.0f,0.0f,1.0f };
 GLfloat zeppelinBody_mat_specular[] = { 0.45f,0.55f,0.45f,1.0f };
-GLfloat zeppelinBody_mat_diffuse[] = { 0.1f,0.1f,0.1f,1.0f };
+GLfloat zeppelinBody_mat_diffuse[] = { 0.9f,0.9f,0.9f,1.0f };
 GLfloat zeppelinBody_mat_shininess[] = { 32.0F };
 
 GLfloat fin_mat_ambient[] = { 0.0215f, 0.1745f, 0.0215f, 0.55f };
@@ -115,7 +143,7 @@ typedef struct BoundingBox {
 } BBox;
 
 // Default Mesh Size
-int meshSize = 16;
+int meshSize = 128;
 
 // Prototypes for functions in this module
 void initOpenGL(int w, int h);
@@ -136,11 +164,57 @@ void drawRightFin();
 void drawPropeller();
 void drawBodyPropeller();
 void drawBlade(float initAngle, float bladeLength);
+void drawMissile();
+
+// Renderer Helpers.
+void renderGluSphere(GLuint textureID);
+void renderGluCylinder();
 
 // User Interaction Utility Functions.
 void onRotate(float angleIncrement);
 void onMove();
 void onHeightChange(float heightIncrement);
+
+// Camera Utility Functions.
+void updateFOVCameraPosition();
+void updateFOVCameraRef();
+void onCameraSwap();
+
+// File System Helpers.
+void readOBJ();
+
+// Texture Helpers.
+GLuint loadTexture(const char *filename);
+
+
+GLuint loadTexture(const char *filename) {
+	GLuint textureID;
+    int width, height, channels;
+    unsigned char *image = stbi_load(filename, &width, &height, &channels, 3);
+
+    if (!image) {
+        printf("Texture loading failed!\n");
+        return 0;
+    }
+
+    glGenTextures(1, &textureID);
+    glBindTexture(GL_TEXTURE_2D, textureID);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
+
+    stbi_image_free(image);
+
+    // Set texture parameters
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE); // Enable Modulate
+
+
+	return textureID;
+}
 
 int main(int argc, char **argv)
 {
@@ -226,7 +300,7 @@ void display(void)
 	glLoadIdentity();
 	// Create Viewing Matrix V
 	// Set up the camera at position (0, cameraY, cameraZ) looking at the origin, up along positive y axis
-	gluLookAt(0.0, cameraY, cameraZ, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
+	gluLookAt(cameraX, cameraY, cameraZ, cameraRefX, cameraRefY, cameraRefZ, 0.0, 1.0, 0.0);
 
 	// Draw Zeppelin
 
@@ -261,6 +335,7 @@ void drawZeppelin()
 		drawLeftFin();
 		drawRightFin();
 		drawBodyPropeller();
+		drawMissile();
 	glPopMatrix();
 
 	glPopMatrix();
@@ -275,8 +350,14 @@ void drawZeppelinBody()
 	glMaterialfv(GL_FRONT, GL_SHININESS, zeppelinBody_mat_shininess);
 
 	glPushMatrix();
-	glScalef(zeppelinBodyWidth, zeppelinBodyLength, zeppelinBodyDepth);
-	glutSolidSphere(1.0, 100, 100);
+		glScalef(zeppelinBodyWidth, zeppelinBodyLength, zeppelinBodyDepth);
+		// Old Render using Glut.
+		// glutSolidSphere(1.0, 100, 100);
+
+		// Load Body Texture.
+		GLuint bodyTexture = loadTexture("textures/marble.png");
+		// Render using Glu.
+		renderGluSphere(bodyTexture);
 	glPopMatrix();
 }
 
@@ -433,6 +514,9 @@ void drawPropeller() {
 		// Build Drive Shaft.
 		glPushMatrix();
 			glScalef(driveShaftWidth, driveShaftLength, driveShaftDepth);
+			// Render using Glu.
+			// glRotatef(90.0, 0.0, 1.0, 0.0);
+			// renderGluCylinder();
 			glutSolidCube(1.0);
 		glPopMatrix();
 
@@ -458,6 +542,9 @@ void drawBodyPropeller() {
 		// Build Drive Shaft.
 		glPushMatrix();
 			glScalef(driveShaftWidth, driveShaftLength, driveShaftDepth);
+			// Render Using Glu.
+			// glRotatef(90.0, 0.0, 1.0, 0.0);
+			// renderGluCylinder();
 			glutSolidCube(1.0);
 		glPopMatrix();
 
@@ -486,8 +573,86 @@ void drawBlade(float initAngle, float bladeLength) {
 
 			glScalef(bladeWidth, bladeLength, bladeDepth);
 			glutSolidSphere(1.0, 100, 100);
+			// Render Using Glu.
+			// renderGluSphere();
 		glPopMatrix();
 	glPopMatrix();
+}
+
+// Draw Missile on Zeppelin Body
+void drawMissile() {
+	glMaterialfv(GL_FRONT, GL_AMBIENT, blade_mat_ambient);
+	glMaterialfv(GL_FRONT, GL_SPECULAR, blade_mat_specular);
+	glMaterialfv(GL_FRONT, GL_DIFFUSE, blade_mat_diffuse);
+	glMaterialfv(GL_FRONT, GL_SHININESS, blade_mat_shininess);
+
+	// Shaft.
+	glPushMatrix();
+		// Position Relative to Body
+		glTranslatef(0.0, 0.0, zeppelinBodyDepth + 0.5 * missileHolderDepth);
+
+		glPushMatrix();
+			glScalef(missileHolderWidth, missileHolderLength, missileHolderDepth);
+			glutSolidCube(1.0);
+		glPopMatrix();
+
+		// Missile.
+		glPushMatrix();
+
+			// Position Relative to Shaft
+			// Move Missile.
+			if (missileFire) 
+			{
+				glRotatef(-zeppelinAngle, 0.0, 1.0, 0.0);
+				glTranslatef(-zeppelinCenter.GetX(), 0.0, -zeppelinCenter.GetZ());
+				glTranslatef(missileCenter.GetX(), 0.0, missileCenter.GetZ());
+				glRotatef(zeppelinAngle, 0.0, 1.0, 0.0);
+			}
+			glTranslatef(-0.5 * missileBodyWidth, 0.0, 0.5 * missileHolderDepth + 0.5 * missileBodyDepth);
+
+
+			// Build Missile
+			glPushMatrix();
+				glScalef(missileBodyWidth, missileBodyLength, missileBodyDepth);
+				glRotatef(90.0, 0.0, 1.0, 0.0);
+				renderGluCylinder();
+			glPopMatrix();
+
+			// Missile Head.
+			glPushMatrix();
+				glTranslatef(missileBodyWidth, 0.0, 0.0);
+				// Build Head.
+				glPushMatrix();
+					glScalef(missileHeadWidth, missileHeadLength, missileHeadDepth);
+					glRotatef(90.0, 0.0, 1.0, 0.0);
+					glutSolidCone(1.0, 2.0, 100, 100);
+				glPopMatrix();
+			glPopMatrix();
+
+		glPopMatrix();
+	glPopMatrix();
+}
+
+// Render Helpers.
+void renderGluSphere(GLuint textureID){
+	glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, textureID);
+	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE); // Enable Modulate
+
+	// Draw a sphere using gluSphere
+    GLUquadricObj* sphere = gluNewQuadric();
+	gluQuadricTexture(sphere, GL_TRUE);  // Enable texture mapping
+    gluSphere(sphere, 1.0, 100, 100);
+	gluDeleteQuadric(sphere);
+
+	glDisable(GL_TEXTURE_2D);
+}
+
+void renderGluCylinder() {
+	// Draw a Cylinder using gluCylinder
+	GLUquadricObj* cylinder = gluNewQuadric();
+	gluCylinder(cylinder, 1.0, 1.0, 1.0, 100, 100);
+	gluDeleteQuadric(cylinder);
 }
 
 // Callback, called at initialization and whenever user resizes the window.
@@ -499,13 +664,13 @@ void reshape(int w, int h)
 
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
-	gluPerspective(60.0, (GLdouble)w / h, 0.2, 80.0);
+	gluPerspective(60.0, (GLdouble)w / h, 0.2, 240.0);
 
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
 
 	// Set up the camera at position (0, cameraY, cameraZ) looking at the origin, up along positive y axis
-	gluLookAt(0.0, cameraY, cameraZ, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
+	gluLookAt(cameraX, cameraY, cameraZ, cameraRefX, cameraRefY, cameraRefZ, 0.0, 1.0, 0.0);
 }
 
 // Callback, called when user rotates zeppelin in y-axis
@@ -515,17 +680,87 @@ void onRotate(float angleIncrement) {
 	forwardDirection.Set(cosf(zeppelinAngle * (M_PI/180.0)), 0.0, -sinf(zeppelinAngle  * (M_PI/180.0)));
 	// Normalize the forward direction for a magnitude of 1
 	forwardDirection.Normalize();
+
+	if (fov) {
+		updateFOVCameraRef();
+	}
 }
 
 // Callback, called when user uses arrow keys to move forward
 void onMove() {
 	// Update the Zeppelin Center to be used to translate zeppeling forward.
 	zeppelinCenter += forwardDirection;
+	// Update Missile Center.
+	missileCenter += forwardDirection;
+	// Update FOV Camera Position and Reference Point.
+	if (fov) {
+		updateFOVCameraPosition();
+		updateFOVCameraRef();
+	}
 }
 
 // Callback, called when user uses up/down arrow keys to ascend/descend
 void onHeightChange(float heightIncrement) {
 	zeppelinHeight += heightIncrement;
+	// Update FOV Camera Height.
+	if (fov) {
+		cameraY = zeppelinHeight + (zeppelinBodyLength + 2.0);
+		cameraRefY = zeppelinHeight + (zeppelinBodyLength + 2.0);
+	}
+}
+
+// FOV Camera Position Update.
+void updateFOVCameraPosition () {
+	cameraX = zeppelinCenter.GetX();
+	cameraY = zeppelinHeight + (zeppelinBodyLength + 2.0);
+	cameraZ = zeppelinCenter.GetZ();
+}
+
+// FOV Camera Reference Update.
+void updateFOVCameraRef() {
+	cameraRefX = cameraX + forwardDirection.GetX();
+	cameraRefY = zeppelinHeight + (zeppelinBodyLength + 2.0);
+	cameraRefZ = cameraZ + forwardDirection.GetZ();
+}
+
+// Callback, called when t is pressed and switches between FPV and World Camera.
+void onCameraSwap() {
+	if (!fov) {
+		// Update to FOV view.
+		updateFOVCameraPosition();
+		updateFOVCameraRef();
+
+		fov = true;
+	} else {
+		// Reset to World Camera.
+		cameraX = 0.0;
+		cameraY = 35.0;
+		cameraZ = 35.0;
+		
+		cameraRefX = 0.0;
+		cameraRefY = 0.0;
+		cameraRefZ = 0.0;
+		fov = false; 
+	}
+}
+
+int mseconds = 0;
+// Callback, called when spacebar pressed to fire the ally missile.
+void onMissileFire(int param) {
+	if (mseconds < 50) {
+		// Update Boolean Fire State.
+		missileFire = true;
+		// Move Missile.
+		missileCenter += forwardDirection;
+		// Increment Timer to Prevent Infinite Loop + Reload Missile.
+		mseconds += 1;
+		glutTimerFunc(1, onMissileFire, 0);
+	} else {
+		mseconds = 0;
+		missileCenter = zeppelinCenter;
+		missileFire = false;
+	}
+	glutPostRedisplay();
 }
 
 // Callback, handles input from the keyboard, non-arrow keys
@@ -547,6 +782,14 @@ void keyboard(unsigned char key, int x, int y)
 		break;
 	case 'w':
 		onMove();
+		break;
+	// Handle FPV Camera Change
+	case 't':
+		onCameraSwap();
+		break;
+	// Fire Missile.
+	case 32:
+		glutTimerFunc(1, onMissileFire, 0);
 		break;
 	}
 
@@ -585,3 +828,57 @@ void functionKeys(int key, int x, int y)
 	glutPostRedisplay();   // Trigger a window redisplay
 }
 
+// Global Num Vertices, Indices, Tris
+unsigned int numTris = 0;
+unsigned int numVertices = 0;
+unsigned int numIndices = 0;
+
+// Global Positions, Normals, and Indices.
+Vector3D *positions;  // vertex positions - used for VBO draw
+Vector3D *normals;    // normal vectors for each vertex - used for VBO draw
+
+// Index Array of Triangles derived from Quad Array - break each quad into 2 triangles
+// Used when drawing with VBO as glDrawElements(GL_QUADS,...) no longer supported in newer versions of OpenGL
+GLuint *indices;
+
+void readOBJ()
+{
+    char buf[1024];
+    char key[1024];
+    int n;
+    FILE *fin;
+
+    int fc = 0; // face count
+    int vc = 0; // vertex count
+    int nc = 0; // normal count
+
+    if ((fin = fopen("mesh.obj", "r")))
+    {
+        /* Process each line of the OBJ file, invoking the handler for each. */
+
+        while (fgets(buf, 1024, fin))
+            if (sscanf(buf, "%s%n", key, &n) >= 1)
+            {
+                if (!strcmp(key, "f"))
+                {
+                    sscanf(buf+1, "%d/%*d/%*d %d/%*d/%*d %d/%*d/%*d", &indices[fc], &indices[fc + 1], &indices[fc + 2]);
+                    fc += 3;
+                }
+                else if (!strcmp(key, "v"))
+                {
+                    sscanf(buf+1, "%f %f %f", &positions[vc].x, &positions[vc].y, &positions[vc].z);
+                    vc++;
+                }
+                else if (!strcmp(key, "vn"))
+                {
+                    sscanf(buf+2, "%f %f %f", &normals[nc].x, &normals[nc].y, &normals[nc].z);
+                    nc++;
+                }
+            }
+        fclose(fin);
+
+        numTris = fc / 3;
+        numIndices = fc;
+        numVertices = vc;
+    }
+}
