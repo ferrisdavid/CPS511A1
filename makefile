@@ -22,7 +22,7 @@ endif
 output: zeppelin.o quadmesh.o
 	g++ Zeppelin.o QuadMesh.o -o output $(LDFLAGS) ${CFLAGS}
 
-zeppelin.o: Zeppelin.cpp VECTOR3D.h QuadMesh.h
+zeppelin.o: Zeppelin.cpp VECTOR3D.h QuadMesh.h surfaceModeller.h stb_image.h
 	g++ -c Zeppelin.cpp $(LDFLAGS) ${CFLAGS}
 
 quadmesh.o: QuadMesh.cpp QuadMesh.h VECTOR3D.h
