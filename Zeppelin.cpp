@@ -74,7 +74,15 @@ VECTOR3D forwardDirection = VECTOR3D(1.0, 0.0, 0.0);
 VECTOR3D zeppelinCenter = VECTOR3D();
 
 // Zeppelin Ally Missile Center.
-VECTOR3D missileCenter = VECTOR3D(0.0, 0.0, 0.0);
+VECTOR3D missileCenter = VECTOR3D();
+
+// Enemy Bounding Box.
+float allyBoundX[2] = {zeppelinCenter.GetX() - (0.5 * zeppelinBodyWidth), zeppelinCenter.GetX() + (1.5 * zeppelinBodyWidth)};
+float allyBoundY[2] = {zeppelinCenter.GetY() - (0.5 * zeppelinBodyLength), zeppelinCenter.GetY() + (0.5 * zeppelinBodyLength)};
+float allyBoundZ[2] = {zeppelinCenter.GetZ() - (0.5 * zeppelinBodyDepth), zeppelinCenter.GetZ() + (0.5 * zeppelinBodyDepth)};
+
+// Ally Destroyed State.
+bool allyDestroyed = false;
 
 // Zeppelin Ally Missile Boolean State.
 bool missileFire = false;
@@ -88,6 +96,23 @@ float zeppelinHeight = 0.0;
 // Zeppelin Propeller blade angle.
 float bladeAngle = 0.0;
 
+// Enemy Zeppelin Height.
+float enemyZeppelinHeight = 10.0;
+
+// Enemy Zeppelin Forward Direction.
+VECTOR3D enemyForwardDirection = VECTOR3D(1.0, 0.0, 0.0);
+VECTOR3D enemyZeppelinCenter = VECTOR3D(0.0, enemyZeppelinHeight, -35.0);
+
+// Enemy Bounding Box.
+float enemyBoundX[2] = {enemyZeppelinCenter.GetX() - (0.5 * zeppelinBodyWidth), enemyZeppelinCenter.GetX() + (1.5 * zeppelinBodyWidth)};
+float enemyBoundY[2] = {enemyZeppelinCenter.GetY() - (0.5 * zeppelinBodyLength), enemyZeppelinCenter.GetY() + (0.5 * zeppelinBodyLength)};
+float enemyBoundZ[2] = {enemyZeppelinCenter.GetZ() - (0.5 * zeppelinBodyDepth), enemyZeppelinCenter.GetZ() + (0.5 * zeppelinBodyDepth)};
+
+// Enemy Destroyed State.
+bool enemyDestroyed = false;
+
+// Enemy Zeppelin Rotation Angle around Y.
+float enemyZeppelinAngle = 0.0;
 
 // Lighting/shading and material properties for robot - upcoming lecture - just copy for now
 // Robot RGBA material properties (NOTE: we will learn about this later in the semester)
@@ -155,7 +180,9 @@ void animationHandler(int param);
 
 // Draw Functions.
 void drawZeppelin();
+void drawEnemyZeppelin();
 void drawZeppelinBody();
+void drawEnemyZeppelinBody();
 void drawCommandCenter();
 void drawLights();
 void drawTopFin();
@@ -179,6 +206,9 @@ void onHeightChange(float heightIncrement);
 void updateFOVCameraPosition();
 void updateFOVCameraRef();
 void onCameraSwap();
+
+// Missile Utility.
+bool checkMissileIntersection(VECTOR3D missileCenter, float boundX[2], float boundY[2], float boundZ[2]);
 
 // File System Helpers.
 void readOBJ();
@@ -307,7 +337,10 @@ void display(void)
 	// Apply modelling transformations M to move robot
 	// Current transformation matrix is set to IV, where I is identity matrix
 	// CTM = IV
-	drawZeppelin();
+	if (!allyDestroyed) drawZeppelin();
+
+	// Draw Enemy Zeppelin.
+	if (!enemyDestroyed) drawEnemyZeppelin();
 
 	// Draw ground
 	glPushMatrix();
@@ -341,6 +374,33 @@ void drawZeppelin()
 	glPopMatrix();
 }
 
+// Draw Enemy Zeppelin.
+void drawEnemyZeppelin() {
+	glPushMatrix();
+		// Translate Up/Down based on Zeppelin Height (Move Zeppelin up/down)
+		glTranslatef(0.0, enemyZeppelinHeight, 0.0);
+		glTranslatef(enemyZeppelinCenter.GetX(), 0.0, enemyZeppelinCenter.GetZ());
+
+		// Rotate the Zeppelin about its Y Axis.
+		glRotatef(enemyZeppelinAngle, 0.0, 1.0, 0.0);
+
+		glPushMatrix();
+			glTranslatef(15.0, 0.0, 0.0);
+			glutSolidCube(1.0);
+		glPopMatrix();
+
+		drawEnemyZeppelinBody();
+		drawCommandCenter();
+		drawTopFin();
+		drawLeftFin();
+		drawRightFin();
+		drawBodyPropeller();
+		drawMissile();
+	glPopMatrix();
+
+	glPopMatrix();
+}
+
 // Draw Zeppelin Body Object.
 void drawZeppelinBody()
 {
@@ -356,6 +416,26 @@ void drawZeppelinBody()
 
 		// Load Body Texture.
 		GLuint bodyTexture = loadTexture("textures/marble.png");
+		// Render using Glu.
+		renderGluSphere(bodyTexture);
+	glPopMatrix();
+}
+
+// Draw Enemy Zeppelin Body Object.
+void drawEnemyZeppelinBody()
+{
+	glMaterialfv(GL_FRONT, GL_AMBIENT, zeppelinBody_mat_ambient);
+	glMaterialfv(GL_FRONT, GL_SPECULAR, zeppelinBody_mat_specular);
+	glMaterialfv(GL_FRONT, GL_DIFFUSE, zeppelinBody_mat_diffuse);
+	glMaterialfv(GL_FRONT, GL_SHININESS, zeppelinBody_mat_shininess);
+
+	glPushMatrix();
+		glScalef(zeppelinBodyWidth, zeppelinBodyLength, zeppelinBodyDepth);
+		// Old Render using Glut.
+		// glutSolidSphere(1.0, 100, 100);
+
+		// Load Body Texture.
+		GLuint bodyTexture = loadTexture("textures/lava.png");
 		// Render using Glu.
 		renderGluSphere(bodyTexture);
 	glPopMatrix();
@@ -702,6 +782,7 @@ void onMove() {
 // Callback, called when user uses up/down arrow keys to ascend/descend
 void onHeightChange(float heightIncrement) {
 	zeppelinHeight += heightIncrement;
+	missileCenter.SetY(zeppelinHeight);
 	// Update FOV Camera Height.
 	if (fov) {
 		cameraY = zeppelinHeight + (zeppelinBodyLength + 2.0);
@@ -748,6 +829,7 @@ int mseconds = 0;
 // Callback, called when spacebar pressed to fire the ally missile.
 void onMissileFire(int param) {
 	if (mseconds < 50) {
+		if (!enemyDestroyed && checkMissileIntersection(missileCenter, enemyBoundX, enemyBoundY, enemyBoundZ)) enemyDestroyed = true;
 		// Update Boolean Fire State.
 		missileFire = true;
 		// Move Missile.
@@ -789,8 +871,11 @@ void keyboard(unsigned char key, int x, int y)
 		break;
 	// Fire Missile.
 	case 32:
-		glutTimerFunc(1, onMissileFire, 0);
+		if (mseconds == 0) glutTimerFunc(1, onMissileFire, 0);
 		break;
+	// Respawn Enemy.
+	case 'q':
+		enemyDestroyed = false;
 	}
 
 	glutPostRedisplay();   // Trigger a window redisplay
@@ -826,6 +911,11 @@ void functionKeys(int key, int x, int y)
 	}
 
 	glutPostRedisplay();   // Trigger a window redisplay
+}
+
+bool checkMissileIntersection(VECTOR3D missileCenter, float boundX[2], float boundY[2], float boundZ[2]) {
+	float centerX = missileCenter.GetX(), centerY = missileCenter.GetY(), centerZ = missileCenter.GetZ();
+	return (centerX >= boundX[0] && centerX <= boundX[1]) && (centerY >= boundY[0] && centerY <= boundY[1]) && (centerZ >= boundZ[0] && centerZ <= boundZ[1]);
 }
 
 // Global Num Vertices, Indices, Tris
