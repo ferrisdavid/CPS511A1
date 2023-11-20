@@ -772,6 +772,10 @@ void onMove() {
 	zeppelinCenter += forwardDirection;
 	// Update Missile Center.
 	missileCenter += forwardDirection;
+	// Update Bounding Box.
+	allyBoundX[0] += forwardDirection.GetX(), allyBoundX[1] += forwardDirection.GetX();
+	allyBoundY[0] += forwardDirection.GetY(), allyBoundY[1] += forwardDirection.GetY();
+	allyBoundZ[0] += forwardDirection.GetZ(), allyBoundZ[1] += forwardDirection.GetZ();
 	// Update FOV Camera Position and Reference Point.
 	if (fov) {
 		updateFOVCameraPosition();
