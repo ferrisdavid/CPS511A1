@@ -33,6 +33,8 @@ private:
     GLfloat mat_diffuse[4];
 	GLfloat mat_shininess[1];
 
+	GLuint textureId;
+
 	
 private:
 	bool CreateMemory();
@@ -54,11 +56,12 @@ public:
 		return MaxMeshDim(minMeshSize, maxMeshSize);
 	}
 	
-	bool InitMesh(int meshSize, VECTOR3D origin, double meshLength, double meshWidth,VECTOR3D dir1, VECTOR3D dir2);
+	bool InitMesh(int meshSize, VECTOR3D origin, double meshLength, double meshWidth,VECTOR3D dir1, VECTOR3D dir2, const char *filename);
 	void DrawMesh(int meshSize);
 	void UpdateMesh();
 	void SetMaterial(VECTOR3D ambient, VECTOR3D diffuse, VECTOR3D specular, double shininess);
 	void ComputeNormals();
+	void loadTexture(const char *filename);
 	
 	
 };

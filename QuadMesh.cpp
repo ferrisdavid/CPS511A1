@@ -10,6 +10,7 @@
 	#include <gl/glut.h>
 #endif
 
+#include "stb_image.h"
 #include <string.h>
 #include <math.h>
 #include <utility>
@@ -46,6 +47,9 @@ QuadMesh::QuadMesh(int maxMeshSize, float meshDim)
 	mat_diffuse[2] = 0.0;
 	mat_diffuse[3] = 1.0;
 	mat_shininess[0] = 0.0;
+
+	// Initialize Default Texture ID
+	textureId = 0;
     
 }
 
@@ -85,7 +89,7 @@ bool QuadMesh::CreateMemory()
 		
 
 
-bool QuadMesh::InitMesh(int meshSize,VECTOR3D origin,double meshLength,double meshWidth,VECTOR3D dir1, VECTOR3D dir2)
+bool QuadMesh::InitMesh(int meshSize,VECTOR3D origin,double meshLength,double meshWidth,VECTOR3D dir1, VECTOR3D dir2, const char *filename)
 {
 	VECTOR3D o;
 	int currentVertex = 0; 	  
@@ -149,6 +153,9 @@ bool QuadMesh::InitMesh(int meshSize,VECTOR3D origin,double meshLength,double me
 
     this->ComputeNormals();
 
+	// Load Texture Image and Store Texture ID.
+	this->loadTexture(filename);
+
 	return true;
 }
 
@@ -161,12 +168,17 @@ void QuadMesh::DrawMesh(int meshSize)
 	glMaterialfv(GL_FRONT, GL_DIFFUSE, mat_diffuse);
 	glMaterialfv(GL_FRONT, GL_SHININESS, mat_shininess);
 
+	glEnable(GL_TEXTURE_2D);
+	glBindTexture(GL_TEXTURE_2D, this->textureId);
+	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE); // Enable Modulate
+
 	for(int j=0; j< meshSize; j++)
 	{
 		for(int k=0; k< meshSize; k++)
 		{
 			glBegin(GL_QUADS);
 			
+			glTexCoord2f( 0.0, 0.0);
 			glNormal3f(quads[currentQuad].vertices[0]->normal.x,
 				       quads[currentQuad].vertices[0]->normal.y,
 					   quads[currentQuad].vertices[0]->normal.z);
@@ -174,6 +186,7 @@ void QuadMesh::DrawMesh(int meshSize)
 				       quads[currentQuad].vertices[0]->position.y,
 					   quads[currentQuad].vertices[0]->position.z);
 			
+			glTexCoord2f( 0.0, 1.0);
 			glNormal3f(quads[currentQuad].vertices[1]->normal.x,
 				       quads[currentQuad].vertices[1]->normal.y,
 					   quads[currentQuad].vertices[1]->normal.z);
@@ -182,6 +195,7 @@ void QuadMesh::DrawMesh(int meshSize)
 				       quads[currentQuad].vertices[1]->position.y,
 					   quads[currentQuad].vertices[1]->position.z);
 			
+			glTexCoord2f( 1.0, 1.0);
 			glNormal3f(quads[currentQuad].vertices[2]->normal.x,
 				       quads[currentQuad].vertices[2]->normal.y,
 					   quads[currentQuad].vertices[2]->normal.z);
@@ -190,6 +204,7 @@ void QuadMesh::DrawMesh(int meshSize)
 				       quads[currentQuad].vertices[2]->position.y,
 					   quads[currentQuad].vertices[2]->position.z);
 			
+			glTexCoord2f( 1.0, 0.0);
 			glNormal3f(quads[currentQuad].vertices[3]->normal.x,
 				       quads[currentQuad].vertices[3]->normal.y,
 					   quads[currentQuad].vertices[3]->normal.z);
@@ -201,6 +216,8 @@ void QuadMesh::DrawMesh(int meshSize)
 			currentQuad++;
 		}
 	}
+
+	glDisable(GL_TEXTURE_2D);
 }
 
 
@@ -269,4 +286,30 @@ void QuadMesh::ComputeNormals()
 			currentQuad++;
 		}
 	}
+}
+
+// Texture Loader Method.
+void QuadMesh::loadTexture(const char *filename) {
+    int width, height, channels;
+    unsigned char *image = stbi_load(filename, &width, &height, &channels, 3);
+
+    if (!image) {
+        printf("Texture loading failed!\n");
+		return;
+    }
+
+    glGenTextures(1, &this->textureId);
+    glBindTexture(GL_TEXTURE_2D, this->textureId);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
+
+    stbi_image_free(image);
+
+    // Set texture parameters
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE); // Enable Modulate
 }
