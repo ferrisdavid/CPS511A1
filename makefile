@@ -19,14 +19,17 @@ UNAME_S := $(shell uname -s)
 endif
 
 
-output: zeppelin.o quadmesh.o
-	g++ Zeppelin.o QuadMesh.o -o output $(LDFLAGS) ${CFLAGS}
+output: zeppelin.o quadmesh.o cube.o
+	g++ Zeppelin.o QuadMesh.o cube.o -o output $(LDFLAGS) ${CFLAGS} && ./output
 
 zeppelin.o: Zeppelin.cpp VECTOR3D.h QuadMesh.h surfaceModeller.h stb_image.h
 	g++ -c Zeppelin.cpp $(LDFLAGS) ${CFLAGS}
 
-quadmesh.o: QuadMesh.cpp QuadMesh.h VECTOR3D.h
+quadmesh.o: QuadMesh.cpp QuadMesh.h VECTOR3D.h stb_image.h
 	g++ -c QuadMesh.cpp $(LDFLAGS) ${CFLAGS}
+
+cube.o: Cube.cpp Cube.h stb_image.h
+	g++ -c Cube.cpp $(LDFLAGS) ${CFLAGS}
 
 clean:
 	rm *.o output
