@@ -18,6 +18,7 @@
 #include <vector>
 #include "VECTOR3D.h"
 #include "QuadMesh.h"
+#include "Cube.h"
 #include "surfaceModeller.h"
 #include "stb_image.h"
 
@@ -25,19 +26,22 @@ const int vWidth = 1200;  // Viewport width in pixels
 const int vHeight = 1200; // Viewport height in pixels
 
 // Camera Position X,Y,Z.
-float cameraZ = 65.0;
-float cameraY = 35.0;
-float cameraX = 0.0;
+float cameraZ = 0.0;
+float cameraY = 40.0;
+float cameraX = -45.0;
 
 // Camera Ref X,Y,Z.
-float cameraRefX = 0.0;
+float cameraRefX = 40.0;
 float cameraRefY = 0.0;
 float cameraRefZ = 0.0;
 
 // Camera Mode.
 bool fov = false;
 
-// Zeppelin Global Object Configs.
+// Bounding Box Visualization Enabled.
+bool drawBoundingBoxes = false;
+
+// Zeppelin Global MeshObject Configs.
 float zeppelinBodyWidth = 15.0;
 float zeppelinBodyLength = 5.0;
 float zeppelinBodyDepth = 5.0;
@@ -70,11 +74,11 @@ float missileHeadLength = missileBodyLength;
 float missileHeadDepth = missileBodyDepth;
 
 // Zeppelin Height.
-float zeppelinHeight = 0.0;
+float zeppelinHeight = 28.0;
 
 // Zeppelin Forward Direction vector.
 VECTOR3D forwardDirection = VECTOR3D(1.0, 0.0, 0.0);
-VECTOR3D zeppelinCenter = VECTOR3D();
+VECTOR3D zeppelinCenter = VECTOR3D(0.0, zeppelinHeight, 0.0);
 
 // Zeppelin Ally Missile Center.
 VECTOR3D missileCenter = VECTOR3D(0.0, zeppelinHeight - ((0.5 * commandCenterLength + 0.5 * missileHolderLength) + (0.5 * missileHolderLength + 0.5 * missileBodyLength)), 0.0);
@@ -97,14 +101,14 @@ float zeppelinAngle = 0.0;
 float bladeAngle = 0.0;
 
 // Enemy Zeppelin Height.
-float enemyZeppelinHeight = 10.0;
+float enemyZeppelinHeight = 30.0;
 
 // Enemy Zeppelin Forward Direction.
 VECTOR3D enemyForwardDirection = VECTOR3D(1.0, 0.0, 0.0);
-VECTOR3D enemyZeppelinCenter = VECTOR3D(0.0, enemyZeppelinHeight, -35.0);
+VECTOR3D enemyZeppelinCenter = VECTOR3D(100.0, enemyZeppelinHeight, -35.0);
 
 // Enemy Missile Center.
-VECTOR3D enemyMissileCenter = VECTOR3D(0.0, enemyZeppelinHeight - ((0.5 * commandCenterLength + 0.5 * missileHolderLength) + (0.5 * missileHolderLength + 0.5 * missileBodyLength)), -35.0);
+VECTOR3D enemyMissileCenter = VECTOR3D(enemyZeppelinCenter.GetX(), enemyZeppelinHeight - ((0.5 * commandCenterLength + 0.5 * missileHolderLength) + (0.5 * missileHolderLength + 0.5 * missileBodyLength)), enemyZeppelinCenter.GetZ());
 
 // Zeppelin Enemy Missile Boolean State.
 bool enemyMissileFired = false;
@@ -163,6 +167,19 @@ GLfloat light_diffuse[] = { 1.0, 1.0, 1.0, 1.0 };
 GLfloat light_specular[] = { 1.0, 1.0, 1.0, 1.0 };
 GLfloat light_ambient[] = { 0.2F, 0.2F, 0.2F, 1.0F };
 
+// Environment Buildings.
+int buildingHeights[] = { 20, 15, 20, 10, 12, 5, 14, 20};
+
+// Mesh MeshObject Structure.
+typedef struct MeshObject
+{
+    Vector3D *positions;
+    Vector3D *normals;
+    GLuint *indices;
+    unsigned int numVertices;
+    unsigned int numIndices;
+	unsigned int numTris;
+} MeshObject;
 
 // Mouse button
 int currentButton;
@@ -209,6 +226,7 @@ void drawMissile(VECTOR3D zeppelinPos, VECTOR3D missilePos, float zeppelinAngle,
 // Renderer Helpers.
 void renderGluSphere(GLuint textureID);
 void renderGluCylinder();
+void drawTris(MeshObject *object);
 
 // User Interaction Utility Functions.
 void onRotate(float angleIncrement);
@@ -224,71 +242,13 @@ void onCameraSwap();
 bool checkMissileIntersection(VECTOR3D missileCenter, float boundX[2], float boundY[2], float boundZ[2]);
 
 // File System Helpers.
-void readOBJ();
+void readOBJ(const char *fileName, MeshObject *object);
 
-GLuint vbo;
-
-void drawBox() {
-	    GLfloat vertices[] = {
-        enemyBoundX[0], enemyBoundY[0], enemyBoundZ[0],
-        enemyBoundX[1], enemyBoundY[0], enemyBoundZ[0],
-        enemyBoundX[1], enemyBoundY[1], enemyBoundZ[0],
-        enemyBoundX[0], enemyBoundY[1], enemyBoundZ[0],
-
-        enemyBoundX[0], enemyBoundY[0], enemyBoundZ[1],
-        enemyBoundX[1], enemyBoundY[0], enemyBoundZ[1],
-        enemyBoundX[1], enemyBoundY[1], enemyBoundZ[1],
-        enemyBoundX[0], enemyBoundY[1], enemyBoundZ[1],
-    };
-
-    glGenBuffers(1, &vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-    glEnableClientState(GL_VERTEX_ARRAY);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glVertexPointer(3, GL_FLOAT, 0, 0);
-
-	glColor3f(1.0, 0.0, 0.0);
-
-    glDrawArrays(GL_LINE_LOOP, 0, 4); // Draw the base rectangle
-    glDrawArrays(GL_LINE_LOOP, 4, 4); // Draw the top rectangle
-
-    glDisableClientState(GL_VERTEX_ARRAY);
-}
+// Visualization Helpers.
+void drawBoundingBox(float boundX[2], float boundY[2], float boundZ[2]);
 
 // Texture Helpers.
 GLuint loadTexture(const char *filename);
-
-
-GLuint loadTexture(const char *filename) {
-	GLuint textureID;
-    int width, height, channels;
-    unsigned char *image = stbi_load(filename, &width, &height, &channels, 3);
-
-    if (!image) {
-        printf("Texture loading failed!\n");
-        return 0;
-    }
-
-    glGenTextures(1, &textureID);
-    glBindTexture(GL_TEXTURE_2D, textureID);
-
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
-
-    stbi_image_free(image);
-
-    // Set texture parameters
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE); // Enable Modulate
-
-
-	return textureID;
-}
 
 int main(int argc, char **argv)
 {
@@ -301,6 +261,8 @@ int main(int argc, char **argv)
 
 	// Initialize GL
 	initOpenGL(vWidth, vHeight);
+
+	// Read Mesh Objects and Store.
 
 	// Register callback functions
 	glutDisplayFunc(display);
@@ -325,7 +287,6 @@ int main(int argc, char **argv)
 
 	return 0;
 }
-
 
 // Set up OpenGL. For viewport and projection setup see reshape(). 
 void initOpenGL(int w, int h)
@@ -357,20 +318,19 @@ void initOpenGL(int w, int h)
 	glLoadIdentity();
 
 
-	// Other initializatuion
+	// Other initialization
 	// Set up ground quad mesh
 	VECTOR3D origin = VECTOR3D(-16.0f, 0.0f, 16.0f);
 	VECTOR3D dir1v = VECTOR3D(1.0f, 0.0f, 0.0f);
 	VECTOR3D dir2v = VECTOR3D(0.0f, 0.0f, -1.0f);
 	groundMesh = new QuadMesh(meshSize, 32.0);
-	groundMesh->InitMesh(meshSize, origin, 32.0, 32.0, dir1v, dir2v);
+	groundMesh->InitMesh(meshSize, origin, 256.0, 64.0, dir1v, dir2v, "textures/pavement.png");
 
 	VECTOR3D ambient = VECTOR3D(0.0f, 0.05f, 0.0f);
-	VECTOR3D diffuse = VECTOR3D(0.4f, 0.8f, 0.4f);
+	VECTOR3D diffuse = VECTOR3D(1.0f, 1.0f, 1.0f);
 	VECTOR3D specular = VECTOR3D(0.04f, 0.04f, 0.04f);
 	float shininess = 0.2;
 	groundMesh->SetMaterial(ambient, diffuse, specular, shininess);
-
 }
 
 
@@ -385,7 +345,20 @@ void display(void)
 	// Set up the camera at position (0, cameraY, cameraZ) looking at the origin, up along positive y axis
 	gluLookAt(cameraX, cameraY, cameraZ, cameraRefX, cameraRefY, cameraRefZ, 0.0, 1.0, 0.0);
 
-	drawBox();
+	// Draw Zeppelin Bounding Boxes.
+	if (drawBoundingBoxes) {
+		drawBoundingBox(enemyBoundX, enemyBoundY, enemyBoundZ);
+		drawBoundingBox(allyBoundX, allyBoundY, allyBoundZ);
+	}
+
+	// Draw Buildings.
+	int xOffset = 0;
+	for (int i = 0; i < 8; i++) {
+		Cube *building = new Cube(15, buildingHeights[i], 10, "textures/building-exterior.jpeg");
+		building->DrawCube(xOffset, -20.0 + (buildingHeights[i]), -36.0);
+		building->DrawCube(xOffset, -20.0 + (buildingHeights[i]), 24.0);
+		xOffset += 32.0;
+	}
 
 	// Draw Zeppelin
 
@@ -447,7 +420,7 @@ void drawEnemyZeppelin() {
 	glPopMatrix();
 }
 
-// Draw Zeppelin Body Object.
+// Draw Zeppelin Body MeshObject.
 void drawZeppelinBody()
 {
 	glMaterialfv(GL_FRONT, GL_AMBIENT, zeppelinBody_mat_ambient);
@@ -467,7 +440,7 @@ void drawZeppelinBody()
 	glPopMatrix();
 }
 
-// Draw Enemy Zeppelin Body Object.
+// Draw Enemy Zeppelin Body MeshObject.
 void drawEnemyZeppelinBody()
 {
 	glMaterialfv(GL_FRONT, GL_AMBIENT, zeppelinBody_mat_ambient);
@@ -504,7 +477,7 @@ void drawCommandCenter() {
 		glutSolidCube(1.0);
 	glPopMatrix();
 
-	// Draw Propeller (Child Object)
+	// Draw Propeller (Child MeshObject)
 	drawPropeller();
 
 	// Draw Undercarriage Lights + Missile
@@ -530,7 +503,7 @@ void drawEnemyCommandCenter() {
 		glutSolidCube(1.0);
 	glPopMatrix();
 
-	// Draw Propeller (Child Object)
+	// Draw Propeller (Child MeshObject)
 	drawPropeller();
 
 	// Draw Missile Under Cabin
@@ -816,7 +789,7 @@ void reshape(int w, int h)
 
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
-	gluPerspective(60.0, (GLdouble)w / h, 0.2, 240.0);
+	gluPerspective(60.0, (GLdouble)w / h, 0.2, 300.0);
 
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
@@ -891,11 +864,11 @@ void onCameraSwap() {
 		fov = true;
 	} else {
 		// Reset to World Camera.
-		cameraX = 0.0;
-		cameraY = 35.0;
-		cameraZ = 35.0;
+		cameraX = -45.0;
+		cameraY = 50.0;
+ 		cameraZ = 0.0;
 		
-		cameraRefX = 0.0;
+		cameraRefX = 40.0;
 		cameraRefY = 0.0;
 		cameraRefZ = 0.0;
 		fov = false; 
@@ -905,8 +878,8 @@ void onCameraSwap() {
 int elapsedAllyFireTime = 0;
 // Callback, called when spacebar pressed to fire the ally missile.
 void onMissileFire(int param) {
-	if (elapsedAllyFireTime < 50 && !enemyDestroyed) {
-		if (!enemyDestroyed && checkMissileIntersection(missileCenter, enemyBoundX, enemyBoundY, enemyBoundZ)) enemyDestroyed = true;
+	if (elapsedAllyFireTime < 50 && !enemyDestroyed && !allyDestroyed) {
+		if (checkMissileIntersection(missileCenter, enemyBoundX, enemyBoundY, enemyBoundZ)) enemyDestroyed = true;
 		// Update Boolean Fire State.
 		missileFired = true;
 		// Move Missile.
@@ -928,16 +901,8 @@ void keyboard(unsigned char key, int x, int y)
 	switch (key)
 	{
 	case 'r':
-		onRotate(2.0);
-		break;
-	case 'R':
-		onRotate(-2.0);
-		break;
-	case 'y':
-		onHeightChange(2.0);
-		break;
-	case 'Y':
-		onHeightChange(-2.0);
+		// Respawn Ally.
+		allyDestroyed = false;
 		break;
 	case 'w':
 		onMove();
@@ -954,6 +919,9 @@ void keyboard(unsigned char key, int x, int y)
 	case 'q':
 		enemyDestroyed = false;
 		break;
+	case 'i':
+		if (drawBoundingBoxes) drawBoundingBoxes = false;
+		else drawBoundingBoxes = true;
 	}
 
 	glutPostRedisplay();   // Trigger a window redisplay
@@ -964,7 +932,7 @@ void animationHandler(int param)
 {
 	// Animate the blade angle (Return to 0 after passing 360)
 	if (bladeAngle == 360.0) bladeAngle = 0.0;
-	else bladeAngle += 1.0;
+	else bladeAngle += 4.0;
 	glutPostRedisplay();
 	glutTimerFunc(10, animationHandler, 0);
 }
@@ -1000,7 +968,7 @@ void moveEnemyHandler(int param) {
 void handlePlayerDetection(int param) {
 	// Detection Ranges (Offsets from Enemy Center in Which the enemy will attempt to fire at player).
 	float playerXRange = 40.0;
-	float playerYRange = 2.0;
+	float playerYRange = 4.0;
 	float playerZRange = 40.0;
 
 	// Enemy Zeppelin Center Coords.
@@ -1013,7 +981,7 @@ void handlePlayerDetection(int param) {
 	bool isInRangeY = (zeppelinHeight >= enemyZeppelinHeight - playerYRange && zeppelinHeight <= enemyZeppelinHeight + playerYRange);
 	bool isInRangeZ = (playerCenterZ >= enemyCenterZ - playerZRange && playerCenterZ <= enemyCenterZ + playerZRange);
 
-	if (isInRangeX && isInRangeY && isInRangeZ) {
+	if (isInRangeX && isInRangeY && isInRangeZ && !allyDestroyed) {
 		// Compute Angle Between the Enemy Center and Player Center.
 		VECTOR3D playerPosition = zeppelinCenter - enemyZeppelinCenter;
 		float angleToPlayer = acos(enemyForwardDirection.DotProduct(playerPosition) / (enemyForwardDirection.GetLength() * playerPosition.GetLength()));
@@ -1029,10 +997,9 @@ void handlePlayerDetection(int param) {
 		isPlayerDetected = true;
 	}
 	else {
+		if (isPlayerDetected) enemyZeppelinAngle = acos(enemyForwardDirection.GetX()) * (180.0 / M_PI);
 		// Reset Movement.
 		isPlayerDetected = false;
-		// TODO: Fix Movement Resetting glitch - Change to only reset angle when previously shifted to face target
-		enemyZeppelinAngle = acos(enemyForwardDirection.GetX()) * (180.0 / M_PI);
 	}
 
 	glutPostRedisplay();
@@ -1043,6 +1010,9 @@ void handlePlayerDetection(int param) {
 int elapsedFromFire = 0;
 void fireEnemyMissile(int param) {
 	if (elapsedFromFire < 50 && isPlayerDetected) {
+		// Check for Collisions with Player and Destroy Player Zeppelin.
+		if (checkMissileIntersection(enemyMissileCenter, allyBoundX, allyBoundY, allyBoundZ)) allyDestroyed = true;
+
 		VECTOR3D playerPosition = zeppelinCenter - enemyZeppelinCenter;
 		enemyMissileFired = true;
 
@@ -1067,10 +1037,10 @@ void fireEnemyMissile(int param) {
 void functionKeys(int key, int x, int y)
 {
 	// Ascend/Descend (Up/Down Arrow Keys)
-	if (key == GLUT_KEY_UP) {
+	if (key == GLUT_KEY_UP && zeppelinHeight < 45.0) {
 		onHeightChange(2.0);
 	}
-	else if (key == GLUT_KEY_DOWN) {
+	else if (key == GLUT_KEY_DOWN && zeppelinHeight > 28.0) {
 		onHeightChange(-2.0);
 	}
 	// Right/Left Turning (Right/Left Arrow Keys)
@@ -1089,57 +1059,165 @@ bool checkMissileIntersection(VECTOR3D missileCenter, float boundX[2], float bou
 	return (centerX >= boundX[0] && centerX <= boundX[1]) && (centerY >= boundY[0] && centerY <= boundY[1]) && (centerZ >= boundZ[0] && centerZ <= boundZ[1]);
 }
 
-// Global Num Vertices, Indices, Tris
-unsigned int numTris = 0;
-unsigned int numVertices = 0;
-unsigned int numIndices = 0;
+// Draw Tris Method for Object Drawing from A2
+void drawTris(MeshObject *object)
+{
+	Vector3D *positions = object->positions;
+	Vector3D *normals = object->normals;
+	GLuint *indices = object->indices;
 
-// Global Positions, Normals, and Indices.
-Vector3D *positions;  // vertex positions - used for VBO draw
-Vector3D *normals;    // normal vectors for each vertex - used for VBO draw
+	glPushMatrix();
+	for (int i = 0; i < object->numTris; i += 3)
+	{
+		glBegin(GL_TRIANGLES);
+		Vector3D *vertexp = &positions[indices[i]];
+		Vector3D *vertexn = &normals[indices[i]];
+		glNormal3f(vertexn->x, vertexn->y, vertexn->z);
+		glVertex3f(vertexp->x, vertexp->y, vertexp->z);
+		vertexp = &positions[indices[i + 1]];
+		vertexn = &normals[indices[i + 1]];
+		glNormal3f(vertexn->x, vertexn->y, vertexn->z);
+		glVertex3f(vertexp->x, vertexp->y, vertexp->z);
+		vertexp = &positions[indices[i + 2]];
+		vertexn = &normals[indices[i + 2]];
+		glNormal3f(vertexn->x, vertexn->y, vertexn->z);
+		glVertex3f(vertexp->x, vertexp->y, vertexp->z);
+		glEnd();
 
-// Index Array of Triangles derived from Quad Array - break each quad into 2 triangles
-// Used when drawing with VBO as glDrawElements(GL_QUADS,...) no longer supported in newer versions of OpenGL
-GLuint *indices;
+	}
 
-void readOBJ()
+	glPopMatrix();
+}
+
+// Texture Loading + Parameter Setting
+GLuint loadTexture(const char *filename) {
+	GLuint textureID;
+    int width, height, channels;
+    unsigned char *image = stbi_load(filename, &width, &height, &channels, 3);
+
+    if (!image) {
+        printf("Texture loading failed!\n");
+        return 0;
+    }
+
+    glGenTextures(1, &textureID);
+    glBindTexture(GL_TEXTURE_2D, textureID);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
+
+    stbi_image_free(image);
+
+    // Set texture parameters
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE); // Enable Modulate
+
+
+	return textureID;
+}
+
+// Bounding Box Visualization.
+GLuint vbo;
+void drawBoundingBox(float boundX[2], float boundY[2], float boundZ[2]) {
+	    GLfloat vertices[] = {
+        boundX[0], boundY[0], boundZ[0],
+        boundX[1], boundY[0], boundZ[0],
+        boundX[1], boundY[1], boundZ[0],
+        boundX[0], boundY[1], boundZ[0],
+
+        boundX[0], boundY[0], boundZ[1],
+        boundX[1], boundY[0], boundZ[1],
+        boundX[1], boundY[1], boundZ[1],
+        boundX[0], boundY[1], boundZ[1],
+    };
+
+    glGenBuffers(1, &vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glVertexPointer(3, GL_FLOAT, 0, 0);
+
+	glColor3f(1.0, 0.0, 0.0);
+
+    glDrawArrays(GL_LINE_LOOP, 0, 4); // Draw the base rectangle
+    glDrawArrays(GL_LINE_LOOP, 4, 4); // Draw the top rectangle
+
+    glDisableClientState(GL_VERTEX_ARRAY);
+}
+
+void readOBJ(const char* fileName, MeshObject *object)
 {
     char buf[1024];
     char key[1024];
     int n;
-    FILE *fin;
+    FILE* fin;
 
     int fc = 0; // face count
     int vc = 0; // vertex count
     int nc = 0; // normal count
 
-    if ((fin = fopen("mesh.obj", "r")))
+    /* Process each line of the OBJ file, count the number of vertices, indices */
+    if ((fin = fopen(fileName, "r")))
     {
-        /* Process each line of the OBJ file, invoking the handler for each. */
-
         while (fgets(buf, 1024, fin))
             if (sscanf(buf, "%s%n", key, &n) >= 1)
             {
                 if (!strcmp(key, "f"))
                 {
-                    sscanf(buf+1, "%d/%*d/%*d %d/%*d/%*d %d/%*d/%*d", &indices[fc], &indices[fc + 1], &indices[fc + 2]);
                     fc += 3;
                 }
                 else if (!strcmp(key, "v"))
                 {
-                    sscanf(buf+1, "%f %f %f", &positions[vc].x, &positions[vc].y, &positions[vc].z);
                     vc++;
                 }
                 else if (!strcmp(key, "vn"))
                 {
-                    sscanf(buf+2, "%f %f %f", &normals[nc].x, &normals[nc].y, &normals[nc].z);
                     nc++;
                 }
             }
         fclose(fin);
 
-        numTris = fc / 3;
-        numIndices = fc;
-        numVertices = vc;
+        object->numIndices = fc;
+        object->numVertices = vc;
+		object->numTris = fc / 3;
+    }
+
+    /* Allocate appropriate amount of memory */
+    object->positions = (Vector3D *)malloc(sizeof(Vector3D) * (object->numVertices));
+    object->normals = (Vector3D *)malloc(sizeof(Vector3D) * (object->numVertices));
+    object->indices = (unsigned int *)malloc(sizeof(unsigned int) * (object->numIndices));
+
+    /* Process each line of the OBJ file again but save data this time */
+    fc = 0; // face count
+    vc = 0; // vertex count
+    nc = 0; // normal count
+    if ((fin = fopen(fileName, "r")))
+    {
+        while (fgets(buf, 1024, fin))
+            if (sscanf(buf, "%s%n", key, &n) >= 1)
+            {
+
+                if (!strcmp(key, "f"))
+                {
+                    sscanf(buf+1, "%d/%*d/%*d %d/%*d/%*d %d/%*d/%*d", &(object->indices[fc]), &(object->indices[fc + 1]), &(object->indices[fc + 2]));
+                    fc += 3;
+                }
+                else if (!strcmp(key, "v"))
+                {
+                    sscanf(buf+1, "%f %f %f", &(object->positions[vc].x), &(object->positions[vc].y), &(object->positions[vc].z));
+                    vc++;
+                }
+                else if (!strcmp(key, "vn"))
+                {
+                    sscanf(buf+2, "%f %f %f", &(object->normals[nc].x), &(object->normals[nc].y), &(object->normals[nc].z));
+                    nc++;
+                }
+            }
+        fclose(fin);
     }
 }
