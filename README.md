@@ -11,6 +11,14 @@ If either the player or zeppelin is hit they will disappear, to respawn the play
 
 The environment consists of a ground mesh created using the provided QuadMesh code from A1 that has been texture mapped with a road pattern. There are also buildings which have been created using a Cube class to generate buildings of various heights on either side of the road. Each building is texture mapped with a building exterior texture, except for the top face of the building. Lastly, there are a few vending machines on the road that are constructed similarly with cubes and texture mapped.
 
+The enemy and player zeppelin have been restricted in their height so that collision with buildings are not possible.
+
+## Video Demo:
+The video demo begins with highlighting the movement and FPV functionality. The player then approaches the enemy and is fired at from the enemy zeppelin. When the missile intersects the player they are destroyed and disappear. The player is respawned using 'r' and then fires a missile at the enemy which when it intersects the enemy is destroyed and disappears. Finally the enemy is respawned and the player returns to the initial position. The ground, buildings, and vending machines can be seen in the environment.
+
+## Close up Fin Image:
+A Close up screenshot of the A2 mesh fin has been included for a better view of the object and texture mapping.
+
 ## Note on Performance:
 Please note that the apparent slowness of the movement in the provided demo is a result of the hardware it was recorded on all functionality still works appropriately.
 
