@@ -81,7 +81,7 @@ VECTOR3D forwardDirection = VECTOR3D(1.0, 0.0, 0.0);
 VECTOR3D zeppelinCenter = VECTOR3D(0.0, zeppelinHeight, 0.0);
 
 // Zeppelin Ally Missile Center.
-VECTOR3D missileCenter = VECTOR3D(0.0, zeppelinHeight - ((0.5 * commandCenterLength + 0.5 * missileHolderLength) + (0.5 * missileHolderLength + 0.5 * missileBodyLength)), 0.0);
+VECTOR3D missileCenter = VECTOR3D(0.0, zeppelinHeight - ((commandCenterLength + missileHolderLength) + (missileHolderLength + missileBodyLength) + 0.5 * zeppelinBodyLength), 0.0);
 
 // Enemy Bounding Box.
 float allyBoundX[2] = {zeppelinCenter.GetX() - (zeppelinBodyWidth), zeppelinCenter.GetX() + (zeppelinBodyWidth)};
@@ -101,14 +101,14 @@ float zeppelinAngle = 0.0;
 float bladeAngle = 0.0;
 
 // Enemy Zeppelin Height.
-float enemyZeppelinHeight = 30.0;
+float enemyZeppelinHeight = 34.0;
 
 // Enemy Zeppelin Forward Direction.
 VECTOR3D enemyForwardDirection = VECTOR3D(1.0, 0.0, 0.0);
 VECTOR3D enemyZeppelinCenter = VECTOR3D(100.0, enemyZeppelinHeight, -35.0);
 
 // Enemy Missile Center.
-VECTOR3D enemyMissileCenter = VECTOR3D(enemyZeppelinCenter.GetX(), enemyZeppelinHeight - ((0.5 * commandCenterLength + 0.5 * missileHolderLength) + (0.5 * missileHolderLength + 0.5 * missileBodyLength)), enemyZeppelinCenter.GetZ());
+VECTOR3D enemyMissileCenter = VECTOR3D(enemyZeppelinCenter.GetX(), enemyZeppelinHeight - ((commandCenterLength + missileHolderLength) + (missileHolderLength + missileBodyLength) + 0.5*zeppelinBodyLength), enemyZeppelinCenter.GetZ());
 
 // Zeppelin Enemy Missile Boolean State.
 bool enemyMissileFired = false;
@@ -127,22 +127,20 @@ float enemyZeppelinAngle = 0.0;
 // Boolean state for tracking whether the player is within the defined ranges of the enemy
 bool isPlayerDetected = false;
 
+// Stop Enemy Movement.
+bool stopMovement = false;
+
 // Lighting/shading and material properties for robot - upcoming lecture - just copy for now
 // Robot RGBA material properties (NOTE: we will learn about this later in the semester)
 GLfloat zeppelinBody_mat_ambient[] = { 0.0f,0.0f,0.0f,1.0f };
 GLfloat zeppelinBody_mat_specular[] = { 0.45f,0.55f,0.45f,1.0f };
-GLfloat zeppelinBody_mat_diffuse[] = { 0.9f,0.9f,0.9f,1.0f };
+GLfloat zeppelinBody_mat_diffuse[] = { 1.0f,1.0f,1.0f,1.0f };
 GLfloat zeppelinBody_mat_shininess[] = { 32.0F };
 
 GLfloat fin_mat_ambient[] = { 0.0215f, 0.1745f, 0.0215f, 0.55f };
-GLfloat fin_mat_diffuse[] = { 0.5f,0.0f,0.0f,1.0f };
+GLfloat fin_mat_diffuse[] = {1.0f,1.0f,1.0f,1.0f };
 GLfloat fin_mat_specular[] = { 0.7f, 0.6f, 0.6f, 1.0f };
-GLfloat fin_mat_shininess[] = { 32.0F };
-
-GLfloat gun_mat_ambient[] = { 0.0f, 0.0f, 0.0f, 1.0f };
-GLfloat gun_mat_diffuse[] = { 0.01f,0.0f,0.01f,0.01f };
-GLfloat gun_mat_specular[] = { 0.5f, 0.5f, 0.5f, 1.0f };
-GLfloat gun_mat_shininess[] = { 100.0F };
+GLfloat fin_mat_shininess[] = { 10.0F };
 
 GLfloat command_mat_ambient[] = { 0.25f, 0.25f, 0.25f, 1.0f };
 GLfloat command_mat_diffuse[] = { 0.4f, 0.4f, 0.4f, 1.0f };
@@ -176,6 +174,7 @@ typedef struct MeshObject
     Vector3D *positions;
     Vector3D *normals;
     GLuint *indices;
+	Vector3D *textures;
     unsigned int numVertices;
     unsigned int numIndices;
 	unsigned int numTris;
@@ -195,6 +194,12 @@ typedef struct BoundingBox {
 
 // Default Mesh Size
 int meshSize = 32;
+
+// Zeppelin Fin Mesh Object Data.
+MeshObject fin;
+
+// Fin Texture ID.
+GLuint finTextureID;
 
 // Prototypes for functions in this module
 void initOpenGL(int w, int h);
@@ -226,7 +231,7 @@ void drawMissile(VECTOR3D zeppelinPos, VECTOR3D missilePos, float zeppelinAngle,
 // Renderer Helpers.
 void renderGluSphere(GLuint textureID);
 void renderGluCylinder();
-void drawTris(MeshObject *object);
+void drawTris(MeshObject *object, GLuint textureID);
 
 // User Interaction Utility Functions.
 void onRotate(float angleIncrement);
@@ -243,6 +248,11 @@ bool checkMissileIntersection(VECTOR3D missileCenter, float boundX[2], float bou
 
 // File System Helpers.
 void readOBJ(const char *fileName, MeshObject *object);
+void buildTextureCoords(MeshObject *object);
+float getMaxX(Vector3D *positions, int numVertices);
+float getMinX(Vector3D *positions, int numVertices);
+float getMaxY(Vector3D *positions, int numVertices);
+float getMinY(Vector3D *positions, int numVertices);
 
 // Visualization Helpers.
 void drawBoundingBox(float boundX[2], float boundY[2], float boundZ[2]);
@@ -254,15 +264,13 @@ int main(int argc, char **argv)
 {
 	// Initialize GLUT
 	glutInit(&argc, argv);
-	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
+	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_ALPHA | GLUT_DEPTH);
 	glutInitWindowSize(vWidth, vHeight);
 	glutInitWindowPosition(200, 30);
 	glutCreateWindow("Zeppelin");
 
 	// Initialize GL
 	initOpenGL(vWidth, vHeight);
-
-	// Read Mesh Objects and Store.
 
 	// Register callback functions
 	glutDisplayFunc(display);
@@ -306,6 +314,16 @@ void initOpenGL(int w, int h)
 	glEnable(GL_LIGHT0);
 	glEnable(GL_LIGHT1);   // This second light is currently off
 
+	// Enable Blending.
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+	// Read Mesh Objects and Store.
+	readOBJ("objects/fin.obj", &fin);
+
+	// Load Fin Textures.
+	finTextureID = loadTexture("textures/camo.jpeg");
+
 	// Other OpenGL setup
 	glEnable(GL_DEPTH_TEST);   // Remove hidded surfaces
 	glShadeModel(GL_SMOOTH);   // Use smooth shading, makes boundaries between polygons harder to see 
@@ -316,7 +334,6 @@ void initOpenGL(int w, int h)
 
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
-
 
 	// Other initialization
 	// Set up ground quad mesh
@@ -355,10 +372,18 @@ void display(void)
 	int xOffset = 0;
 	for (int i = 0; i < 8; i++) {
 		Cube *building = new Cube(15, buildingHeights[i], 10, "textures/building-exterior.jpeg");
+		// Left Side of Street.
 		building->DrawCube(xOffset, -20.0 + (buildingHeights[i]), -36.0);
+		// Right Side of Street.
 		building->DrawCube(xOffset, -20.0 + (buildingHeights[i]), 24.0);
 		xOffset += 32.0;
 	}
+
+	// Vending Machines
+	Cube *phone = new Cube(2, 5, 1, "textures/vending.png");
+	phone->DrawCube(10.0, -20.0 + 5, -25.0);
+	phone->DrawCube(45.0, -20.0 + 5, 13.0);
+	phone->DrawCube(155.0, -20.0 + 5, -25.0);
 
 	// Draw Zeppelin
 
@@ -430,11 +455,8 @@ void drawZeppelinBody()
 
 	glPushMatrix();
 		glScalef(zeppelinBodyWidth, zeppelinBodyLength, zeppelinBodyDepth);
-		// Old Render using Glut.
-		// glutSolidSphere(1.0, 100, 100);
-
 		// Load Body Texture.
-		GLuint bodyTexture = loadTexture("textures/marble.png");
+		GLuint bodyTexture = loadTexture("textures/camo.jpeg");
 		// Render using Glu.
 		renderGluSphere(bodyTexture);
 	glPopMatrix();
@@ -567,16 +589,15 @@ void drawTopFin() {
 
 	glPushMatrix();
 	// Position Top Fin with Respect to Parent (body)
-	glTranslatef(-(finWidth + 0.65 * zeppelinBodyWidth), finLength + 0.10*zeppelinBodyLength, 0.0);
+	glTranslatef(-(finWidth + 0.65 * zeppelinBodyWidth), 1.45*finLength, 0.0);
 
-	// Build the top fin.
-	glPushMatrix();
-		glRotatef(-90.0, 0.0, 1.0, 0.0);
-		glRotatef(165.0, 1.0, 0.0, 0.0);
-
-		glScalef(finWidth, finLength, finDepth);
-		glutSolidCube(1.0);
-	glPopMatrix();
+		// Build the top fin.
+		glPushMatrix();
+			glRotatef(15.0, 0.0, 0.0, 1.0);
+			glScalef(1.25, 1.0, 1.0);
+			// Draw Loaded Fin Mesh
+			drawTris(&fin, finTextureID);
+		glPopMatrix();
 	glPopMatrix();
 }
 
@@ -589,15 +610,14 @@ void drawLeftFin() {
 
 	glPushMatrix();
 	// Position Top Fin with Respect to Parent (body)
-	glTranslatef(-(finWidth + 0.65 * zeppelinBodyWidth), 0.0, 0.45 * finDepth + 0.5 * zeppelinBodyDepth);
+	glTranslatef(-(finWidth + 0.65 * zeppelinBodyWidth), 0.0, 0.5 * finDepth + 0.3 * zeppelinBodyDepth);
 
 	// Build the top fin.
 	glPushMatrix();
-		glRotatef(-90.0, 0.0, 0.0, 1.0);
-		glRotatef(60.0, 1.0, 0.0, 0.0);
-
-		glScalef(finWidth, finLength, finDepth);
-		glutSolidCube(1.0);
+		glRotatef(90.0, 1.0, 0.0, 0.0);
+		glScalef(1.25, 1.5, 1.0);
+		// Draw Loaded Fin Mesh
+		drawTris(&fin, finTextureID);
 	glPopMatrix();
 	glPopMatrix();
 }
@@ -611,15 +631,14 @@ void drawRightFin() {
 
 	glPushMatrix();
 	// Position Top Fin with Respect to Parent (body)
-	glTranslatef(-(finWidth + 0.65 * zeppelinBodyWidth), 0.0, -(0.45 * finDepth + 0.5 * zeppelinBodyDepth));
+	glTranslatef(-(finWidth + 0.65 * zeppelinBodyWidth), 0.0, -(0.5 * finDepth + 0.3 * zeppelinBodyDepth));
 
 	// Build the top fin.
 	glPushMatrix();
-		glRotatef(90.0, 0.0, 0.0, 1.0);
-		glRotatef(60.0, 1.0, 0.0, 0.0);
-
-		glScalef(finWidth, finLength, finDepth);
-		glutSolidCube(1.0);
+		glRotatef(-90.0, 1.0, 0.0, 0.0);
+		glScalef(1.25, 1.5, 1.0);
+		// Draw Loaded Fin Mesh
+		drawTris(&fin, finTextureID);
 	glPopMatrix();
 	glPopMatrix();
 }
@@ -639,9 +658,6 @@ void drawPropeller() {
 		// Build Drive Shaft.
 		glPushMatrix();
 			glScalef(driveShaftWidth, driveShaftLength, driveShaftDepth);
-			// Render using Glu.
-			// glRotatef(90.0, 0.0, 1.0, 0.0);
-			// renderGluCylinder();
 			glutSolidCube(1.0);
 		glPopMatrix();
 
@@ -667,9 +683,6 @@ void drawBodyPropeller() {
 		// Build Drive Shaft.
 		glPushMatrix();
 			glScalef(driveShaftWidth, driveShaftLength, driveShaftDepth);
-			// Render Using Glu.
-			// glRotatef(90.0, 0.0, 1.0, 0.0);
-			// renderGluCylinder();
 			glutSolidCube(1.0);
 		glPopMatrix();
 
@@ -698,8 +711,6 @@ void drawBlade(float initAngle, float bladeLength) {
 
 			glScalef(bladeWidth, bladeLength, bladeDepth);
 			glutSolidSphere(1.0, 100, 100);
-			// Render Using Glu.
-			// renderGluSphere();
 		glPopMatrix();
 	glPopMatrix();
 }
@@ -761,16 +772,20 @@ void drawMissile(VECTOR3D zeppelinPos, VECTOR3D missilePos, float zeppelinAngle,
 // Render Helpers.
 void renderGluSphere(GLuint textureID){
 	glEnable(GL_TEXTURE_2D);
+	glEnable(GL_CULL_FACE);
+
     glBindTexture(GL_TEXTURE_2D, textureID);
 	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE); // Enable Modulate
 
 	// Draw a sphere using gluSphere
     GLUquadricObj* sphere = gluNewQuadric();
 	gluQuadricTexture(sphere, GL_TRUE);  // Enable texture mapping
+	gluQuadricNormals(sphere, GLU_SMOOTH);
     gluSphere(sphere, 1.0, 100, 100);
 	gluDeleteQuadric(sphere);
 
 	glDisable(GL_TEXTURE_2D);
+	glDisable(GL_CULL_FACE);
 }
 
 void renderGluCylinder() {
@@ -832,7 +847,11 @@ void onMove() {
 void onHeightChange(float heightIncrement) {
 	zeppelinHeight += heightIncrement;
 	// Update the Missile Center Height Component.
-	missileCenter.SetY(zeppelinHeight - ((0.5 * commandCenterLength + 0.5 * missileHolderLength) + (0.5 * missileHolderLength + 0.5 * missileBodyLength)));
+	missileCenter.SetY(zeppelinHeight - ((commandCenterLength + missileHolderLength) + (missileHolderLength + missileBodyLength) + 0.5*zeppelinBodyLength));
+	zeppelinCenter.SetY(zeppelinHeight);
+	// Update Bounding Box.
+	allyBoundY[0] = zeppelinCenter.GetY() - (zeppelinBodyLength);
+	allyBoundY[1] = zeppelinCenter.GetY() + (zeppelinBodyLength);
 	// Update FOV Camera Height.
 	if (fov) {
 		cameraY = zeppelinHeight + (zeppelinBodyLength + 2.0);
@@ -878,7 +897,7 @@ void onCameraSwap() {
 int elapsedAllyFireTime = 0;
 // Callback, called when spacebar pressed to fire the ally missile.
 void onMissileFire(int param) {
-	if (elapsedAllyFireTime < 50 && !enemyDestroyed && !allyDestroyed) {
+	if (elapsedAllyFireTime < 100 && !enemyDestroyed && !allyDestroyed) {
 		if (checkMissileIntersection(missileCenter, enemyBoundX, enemyBoundY, enemyBoundZ)) enemyDestroyed = true;
 		// Update Boolean Fire State.
 		missileFired = true;
@@ -889,7 +908,7 @@ void onMissileFire(int param) {
 		glutTimerFunc(1, onMissileFire, 0);
 	} else {
 		elapsedAllyFireTime = 0;
-		missileCenter.Set(zeppelinCenter.GetX(), zeppelinHeight - ((0.5 * commandCenterLength + 0.5 * missileHolderLength) + (0.5 * missileHolderLength + 0.5 * missileBodyLength)), zeppelinCenter.GetZ());
+		missileCenter.Set(zeppelinCenter.GetX(), zeppelinHeight - ((commandCenterLength + missileHolderLength) + (missileHolderLength + missileBodyLength) + 0.5*zeppelinBodyLength), zeppelinCenter.GetZ());
 		missileFired = false;
 	}
 	glutPostRedisplay();
@@ -922,6 +941,9 @@ void keyboard(unsigned char key, int x, int y)
 	case 'i':
 		if (drawBoundingBoxes) drawBoundingBoxes = false;
 		else drawBoundingBoxes = true;
+		break;
+	case 's':
+		stopMovement = !stopMovement;
 	}
 
 	glutPostRedisplay();   // Trigger a window redisplay
@@ -945,7 +967,7 @@ void rotateEnemy(float angle) {
 }
 
 void moveEnemyHandler(int param) {
-	if (!isPlayerDetected) {
+	if (!isPlayerDetected && !stopMovement) {
 		// Update the angle to create the circular motion
 		rotateEnemy(enemyZeppelinAngle + 3.0);
 
@@ -967,9 +989,9 @@ void moveEnemyHandler(int param) {
 
 void handlePlayerDetection(int param) {
 	// Detection Ranges (Offsets from Enemy Center in Which the enemy will attempt to fire at player).
-	float playerXRange = 40.0;
-	float playerYRange = 4.0;
-	float playerZRange = 40.0;
+	float playerXRange = 100.0;
+	float playerYRange = 8.0;
+	float playerZRange = 100.0;
 
 	// Enemy Zeppelin Center Coords.
 	float enemyCenterX = enemyZeppelinCenter.GetX(), enemyCenterZ = enemyZeppelinCenter.GetZ();
@@ -1009,7 +1031,7 @@ void handlePlayerDetection(int param) {
 // Callback, handles the automatic enemy missile firing which is triggered when the isPlayerDetected boolean is true
 int elapsedFromFire = 0;
 void fireEnemyMissile(int param) {
-	if (elapsedFromFire < 50 && isPlayerDetected) {
+	if (elapsedFromFire < 100 && isPlayerDetected) {
 		// Check for Collisions with Player and Destroy Player Zeppelin.
 		if (checkMissileIntersection(enemyMissileCenter, allyBoundX, allyBoundY, allyBoundZ)) allyDestroyed = true;
 
@@ -1024,7 +1046,7 @@ void fireEnemyMissile(int param) {
 	}
 	else {
 		elapsedFromFire = 0;
-		enemyMissileCenter.Set(enemyZeppelinCenter.GetX(), enemyZeppelinHeight - ((0.5 * commandCenterLength + 0.5 * missileHolderLength) + (0.5 * missileHolderLength + 0.5 * missileBodyLength)), enemyZeppelinCenter.GetZ());
+		enemyMissileCenter.Set(enemyZeppelinCenter.GetX(), enemyZeppelinHeight - ((commandCenterLength + missileHolderLength) + (missileHolderLength + missileBodyLength) + 0.5 * zeppelinBodyLength), enemyZeppelinCenter.GetZ());
 		enemyMissileFired = false;
 	}
 
@@ -1040,7 +1062,7 @@ void functionKeys(int key, int x, int y)
 	if (key == GLUT_KEY_UP && zeppelinHeight < 45.0) {
 		onHeightChange(2.0);
 	}
-	else if (key == GLUT_KEY_DOWN && zeppelinHeight > 28.0) {
+	else if (key == GLUT_KEY_DOWN && zeppelinHeight > 23.0) {
 		onHeightChange(-2.0);
 	}
 	// Right/Left Turning (Right/Left Arrow Keys)
@@ -1060,33 +1082,48 @@ bool checkMissileIntersection(VECTOR3D missileCenter, float boundX[2], float bou
 }
 
 // Draw Tris Method for Object Drawing from A2
-void drawTris(MeshObject *object)
+void drawTris(MeshObject *object, GLuint textureID)
 {
 	Vector3D *positions = object->positions;
 	Vector3D *normals = object->normals;
+	Vector3D *textures = object->textures;
 	GLuint *indices = object->indices;
 
+	glEnable(GL_TEXTURE_2D);
+	glEnable(GL_CULL_FACE);
+	glBindTexture(GL_TEXTURE_2D, textureID);
+  	// Set up texture mapping.
+  	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+
 	glPushMatrix();
-	for (int i = 0; i < object->numTris; i += 3)
+	for (int i = 0; i < object->numTris * 3; i += 3)
 	{
 		glBegin(GL_TRIANGLES);
 		Vector3D *vertexp = &positions[indices[i]];
 		Vector3D *vertexn = &normals[indices[i]];
+		Vector3D *vertext = &textures[indices[i]];
 		glNormal3f(vertexn->x, vertexn->y, vertexn->z);
+		glTexCoord2f(vertext->x, vertext->y);
 		glVertex3f(vertexp->x, vertexp->y, vertexp->z);
 		vertexp = &positions[indices[i + 1]];
 		vertexn = &normals[indices[i + 1]];
+		vertext = &textures[indices[i + 1]];
 		glNormal3f(vertexn->x, vertexn->y, vertexn->z);
+		glTexCoord2f(vertext->x, vertext->y);
 		glVertex3f(vertexp->x, vertexp->y, vertexp->z);
 		vertexp = &positions[indices[i + 2]];
 		vertexn = &normals[indices[i + 2]];
+		vertext = &textures[indices[i + 2]];
 		glNormal3f(vertexn->x, vertexn->y, vertexn->z);
+		glTexCoord2f(vertext->x, vertext->y);
 		glVertex3f(vertexp->x, vertexp->y, vertexp->z);
 		glEnd();
 
 	}
-
 	glPopMatrix();
+
+	glDisable(GL_TEXTURE_2D);
+	glDisable(GL_CULL_FACE);
 }
 
 // Texture Loading + Parameter Setting
@@ -1184,12 +1221,12 @@ void readOBJ(const char* fileName, MeshObject *object)
 
         object->numIndices = fc;
         object->numVertices = vc;
-		object->numTris = fc / 3;
     }
 
     /* Allocate appropriate amount of memory */
     object->positions = (Vector3D *)malloc(sizeof(Vector3D) * (object->numVertices));
     object->normals = (Vector3D *)malloc(sizeof(Vector3D) * (object->numVertices));
+	object->textures = (Vector3D *)malloc(sizeof(Vector3D) * (object->numVertices));
     object->indices = (unsigned int *)malloc(sizeof(unsigned int) * (object->numIndices));
 
     /* Process each line of the OBJ file again but save data this time */
@@ -1220,4 +1257,57 @@ void readOBJ(const char* fileName, MeshObject *object)
             }
         fclose(fin);
     }
+	object->numTris = fc / 3;
+	buildTextureCoords(object);
+}
+
+void buildTextureCoords(MeshObject *object) {
+	float maxX = getMaxX(object->positions, object->numVertices), minX = getMinX(object->positions, object->numVertices);
+	float maxY = getMaxY(object->positions, object->numVertices), minY = getMinY(object->positions, object->numVertices);
+
+	for (int i =0; i < object->numVertices; i++) {
+		object->textures[i].x = ((object->positions[i].x) - minX) / (maxX - minX);
+		object->textures[i].y = ((object->positions[i].y) - minY) / (maxY - minY);
+	}
+}
+ 
+
+float getMaxX(Vector3D *positions, int numVertices) {
+	float currentMax = positions[0].x;
+
+	for (int i = 0; i < numVertices; i++) {
+		if (positions[i].x > currentMax) currentMax = positions[i].x;
+	}
+
+	return currentMax;
+}
+
+float getMinX(Vector3D *positions, int numVertices) {
+	float currentMin = positions[0].x;
+
+	for (int i = 0; i < numVertices; i++) {
+		if (positions[i].x < currentMin) currentMin = positions[i].x;
+	}
+
+	return currentMin;
+}
+
+float getMaxY(Vector3D *positions, int numVertices) {
+	float currentMax = positions[0].y;
+
+	for (int i = 0; i < numVertices; i++) {
+		if (positions[i].y > currentMax) currentMax = positions[i].y;
+	}
+
+	return currentMax;
+}
+
+float getMinY(Vector3D *positions, int numVertices) {
+	float currentMin = positions[0].y;
+
+	for (int i = 0; i < numVertices; i++) {
+		if (positions[i].y < currentMin) currentMin = positions[i].y;
+	}
+
+	return currentMin;
 }
