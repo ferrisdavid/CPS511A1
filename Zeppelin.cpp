@@ -989,9 +989,9 @@ void moveEnemyHandler(int param) {
 
 void handlePlayerDetection(int param) {
 	// Detection Ranges (Offsets from Enemy Center in Which the enemy will attempt to fire at player).
-	float playerXRange = 100.0;
+	float playerXRange = 65.0;
 	float playerYRange = 8.0;
-	float playerZRange = 100.0;
+	float playerZRange = 65.0;
 
 	// Enemy Zeppelin Center Coords.
 	float enemyCenterX = enemyZeppelinCenter.GetX(), enemyCenterZ = enemyZeppelinCenter.GetZ();
