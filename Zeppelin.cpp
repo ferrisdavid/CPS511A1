@@ -1003,7 +1003,7 @@ void handlePlayerDetection(int param) {
 	bool isInRangeY = (zeppelinHeight >= enemyZeppelinHeight - playerYRange && zeppelinHeight <= enemyZeppelinHeight + playerYRange);
 	bool isInRangeZ = (playerCenterZ >= enemyCenterZ - playerZRange && playerCenterZ <= enemyCenterZ + playerZRange);
 
-	if (isInRangeX && isInRangeY && isInRangeZ && !allyDestroyed) {
+	if (isInRangeX && isInRangeY && isInRangeZ && !allyDestroyed && !stopMovement) {
 		// Compute Angle Between the Enemy Center and Player Center.
 		VECTOR3D playerPosition = zeppelinCenter - enemyZeppelinCenter;
 		float angleToPlayer = acos(enemyForwardDirection.DotProduct(playerPosition) / (enemyForwardDirection.GetLength() * playerPosition.GetLength()));
